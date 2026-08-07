@@ -70,3 +70,9 @@ test("6. 两处 liuren.json byte 级一致", () => {
   const b = fs.readFileSync(path.join(import.meta.dir, "../../知识库/data/liuren.json"));
   expect(a.equals(b)).toBe(true);
 });
+
+test("7. 输出含 [口径] 披露行", async () => {
+  const r = await exec({ datetime: "2024-01-01 00:00" });
+  expect(r).toContain("[口径]");
+  expect(r).toContain("astronomy-engine 天文算法");
+});

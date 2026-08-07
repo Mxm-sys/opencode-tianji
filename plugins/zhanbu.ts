@@ -20,7 +20,7 @@ const WEI = hex.WEI;
 const NUM_TO_GUA = hex.NUM_TO_GUA;
 const LINES_TO_TRIGRAM = hex.LINES_TO_TRIGRAM;
 const { guaList, guaOf, guaOfTrigrams, splitUpDown } = hex;
-const { parseDT, fullGanZhi, normDongs, bianGuaName, relation } = hex;
+const { parseDT, fullGanZhi, normDongs, bianGuaName, relation, 口径披露 } = hex;
 
 /** 常用汉字笔画表(字占用)。未收录的字按 Unicode 码点 mod 8 兜底,与梅花字占"以笔画起卦"的简化近似 */
 const STROKE_POS: Map<string, number> = new Map([
@@ -96,12 +96,32 @@ function guzhiStr(g: ReturnType<typeof fullGanZhi>): string {
 
 /* ==================== 工具 1:起卦 ==================== */
 
+/** mulberry32 种子 PRNG(替代裸 Math.random,支持 seed 复现) */
+function mulberry32(a: number) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** seed 参数(string/number) → 32 位整数;string 用 FNV-1a 哈希 */
+function toSeed(s: string | number): number {
+  if (typeof s === "number") return Math.floor(Math.abs(s)) || 1;
+  let h = 0x811c9dc5;
+  for (const ch of s) { h ^= ch.codePointAt(0)!; h = Math.imul(h, 0x01000193); }
+  return h || 1;
+}
+
 async function qigua(args: {
   method?: string; datetime?: string; 卦名?: string; 动爻?: number[]; 数?: number[]; 字?: string;
+  晚子时?: "换日" | "不换日"; 经度?: number; seed?: string | number;
 }): Promise<string> {
   const method = args.method ?? "time";
+  const opts = { 晚子时: args.晚子时, 经度: args.经度 };
   const t = parseDT(args.datetime);
-  const gzFull = fullGanZhi(t);
+  const gzFull = fullGanZhi(t, opts);
   const mName = method === "time" ? "梅花易数时间起卦" : method === "coins" ? "三枚铜钱六掷" :
     method === "shu" ? "报数起卦" : method === "zi" ? "字占起卦" : "手动指定卦名";
   const out: string[] = [`【起卦·${mName}】`, ""];
@@ -190,15 +210,18 @@ async function qigua(args: {
     );
   } else if (method === "coins") {
     // 模拟三枚铜钱六掷:三背=老阳(9,动)、三字=老阴(6,动)、二背一字=少阳(7)、一背二字=少阴(8)
+    // 用 mulberry32 种子 PRNG:无 seed 用 Date.now() 生成并输出;有 seed 可复现同卦。
+    const seedNum = args.seed === undefined ? (Date.now() >>> 0) || 1 : toSeed(args.seed);
+    const rand = mulberry32(seedNum);
     const lineStrs: string[] = [];
     for (let i = 0; i < 6; i++) {
-      const backs = [0, 1, 2].map(() => (Math.random() < 0.5 ? 1 : 0)).reduce((a, b) => a + b, 0);
+      const backs = [0, 1, 2].map(() => (rand() < 0.5 ? 1 : 0)).reduce((a, b) => a + b, 0);
       const kind = backs === 3 ? "老阳(9·动)" : backs === 0 ? "老阴(6·动)" : backs === 2 ? "少阳(7)" : "少阴(8)";
       const yang = backs >= 2;
       lineStrs.push(`${WEI[i]}: ${backs}背 → ${kind}${yang ? "⚊" : "⚋"}`);
       if (backs === 3 || backs === 0) dongs.push(i + 1);
     }
-    out.push("掷卦(由下而上):", ...lineStrs.map((s) => `  ${s}`), "");
+    out.push(`掷卦(由下而上)  [seed=0x${seedNum.toString(16)}${args.seed !== undefined ? " 复现seed" : ""}]:`, ...lineStrs.map((s) => `  ${s}`), "");
     const b = new Array<string>(6).fill("0");
     for (const [i, s] of lineStrs.entries()) b[i] = s.includes("⚊") ? "1" : "0";
     // 由六爻串反推上下卦
@@ -223,15 +246,15 @@ async function qigua(args: {
     `本卦卦辞: ${gua.卦辞}  (据 liushi_si_gua.json)`,
   );
   if (bianGua) out.push(`变卦卦辞: ${bianGua.卦辞}  (据 liushi_si_gua.json)`);
-  out.push("", "数据出处: 起卦算法据梅花易数·时间起卦/增删卜易·铜钱卦;卦名/卦辞/世应据 liushi_si_gua.json");
+  out.push("", "数据出处: 起卦算法据梅花易数·时间起卦/增删卜易·铜钱卦;卦名/卦辞/世应据 liushi_si_gua.json", 口径披露());
   void throwLines;
   return out.join("\n");
 }
 
 /* ==================== 工具 2:排盘 ==================== */
 
-async function paipan(args: { 卦名: string; 动爻?: number[]; datetime?: string; 占事?: string }): Promise<string> {
-  const pan = hex.buildPan(args.卦名, args.动爻, args.datetime);
+async function paipan(args: { 卦名: string; 动爻?: number[]; datetime?: string; 占事?: string; 晚子时?: "换日" | "不换日"; 经度?: number }): Promise<string> {
+  const pan = hex.buildPan(args.卦名, args.动爻, args.datetime, { 晚子时: args.晚子时, 经度: args.经度 });
   const { gua, dongs, gzFull, lines, body, xk, poZhi, shiLine, yingLine } = pan;
   const out: string[] = [
     `【排盘】${gua.卦名} ${gua.卦符} (${gua.上下卦})`,
@@ -271,16 +294,16 @@ async function paipan(args: { 卦名: string; 动爻?: number[]; datetime?: stri
       }
     }
   }
-  out.push("", "数据出处: 纳甲/六亲/世应/八宫据 liushi_si_gua.json;六神/卦身据 nayin.json;旬空/月破/旺相休囚/六冲六合三合据 ganzhi.json");
+  out.push("", "数据出处: 纳甲/六亲/世应/八宫据 liushi_si_gua.json;六神/卦身据 nayin.json;旬空/月破/旺相休囚/六冲六合三合据 ganzhi.json", 口径披露());
   return out.join("\n");
 }
 
 /* ==================== 工具 3:断卦辅助 ==================== */
 
 async function duangua(args: {
-  卦名: string; 动爻?: number[]; datetime?: string; 占事: string;
+  卦名: string; 动爻?: number[]; datetime?: string; 占事: string; 晚子时?: "换日" | "不换日"; 经度?: number;
 }): Promise<string> {
-  const pan = hex.buildPan(args.卦名, args.动爻, args.datetime);
+  const pan = hex.buildPan(args.卦名, args.动爻, args.datetime, { 晚子时: args.晚子时, 经度: args.经度 });
   const ys = yongShenFor(args.占事);
   const { gua, gzFull, shiLine, yingLine, xk } = pan;
   const out: string[] = [
@@ -319,7 +342,7 @@ async function duangua(args: {
     `── 注意事项 ──`,
     `  ${yuNote(args.占事)}`,
   );
-  out.push("", "以上为规则性辅助,最终解读由解读方结合卦辞爻辞综合判断。");
+  out.push("", "以上为规则性辅助,最终解读由解读方结合卦辞爻辞综合判断。", 口径披露());
   return out.join("\n");
 }
 
@@ -388,7 +411,7 @@ async function cha(args: { 卦名: string; 动爻?: number[] }): Promise<string>
     const info = baguas.find((x) => x.卦名 === b);
     if (info) out.push(`【${pos}·${info.卦名}象意】卦象${info.卦象},德${info.卦德},五行${info.五行},方位${info.后天方位};取象:${info.取象}  (据 bagua.json)`);
   }
-  out.push("", "数据出处: 卦辞/变卦据 liushi_si_gua.json;爻辞/用九用六据 爻辞.json;易林据 yilin.json;八卦象意据 bagua.json");
+  out.push("", "数据出处: 卦辞/变卦据 liushi_si_gua.json;爻辞/用九用六据 爻辞.json;易林据 yilin.json;八卦象意据 bagua.json", 口径披露());
   return out.join("\n");
 }
 
@@ -403,6 +426,9 @@ const qiguaTool = tool({
     动爻: tool.schema.array(tool.schema.number()).optional().describe("动爻爻位(1-6,自下而上)"),
     数: tool.schema.array(tool.schema.number()).optional().describe("shu 方式报出的数字(1-3个,如 [7,3,15])"),
     字: tool.schema.string().optional().describe("zi 方式所报之字(笔画起卦,支持单字/多字)"),
+    晚子时: tool.schema.enum(["换日", "不换日"]).optional().describe("晚子时(23-24点)日柱处理:换日=归次日(默认),不换日=按当日"),
+    经度: tool.schema.number().optional().describe("出生地/起卦地经度(东经正,如 87=乌鲁木齐)。默认 120(东八区);传入非120时用真太阳时定时辰"),
+    seed: tool.schema.string().or(tool.schema.number()).optional().describe("coins 方式的随机种子,同 seed 可复现同一卦;不传则自动生成(输出 seed=0x…)"),
   },
   execute: qigua,
 });
@@ -414,6 +440,8 @@ const paipanTool = tool({
     动爻: tool.schema.array(tool.schema.number()).optional().describe("动爻爻位(1-6)"),
     datetime: tool.schema.string().optional().describe("ISO 时间字符串(默认现在)"),
     占事: tool.schema.string().optional().describe("占问之事,如:求财"),
+    晚子时: tool.schema.enum(["换日", "不换日"]).optional().describe("晚子时(23-24点)日柱处理:换日=归次日(默认),不换日=按当日"),
+    经度: tool.schema.number().optional().describe("起卦地经度(东经正)。默认 120(东八区);传入非120时用真太阳时定时辰"),
   },
   execute: paipan,
 });
@@ -425,6 +453,8 @@ const duanguaTool = tool({
     动爻: tool.schema.array(tool.schema.number()).optional().describe("动爻爻位(1-6)"),
     datetime: tool.schema.string().optional().describe("ISO 时间字符串(默认现在)"),
     占事: tool.schema.enum(["求财", "功名", "婚姻", "疾病", "出行", "行人", "词讼", "失物", "家宅", "天时", "胎孕", "终身", "其他"]).describe("占问门类"),
+    晚子时: tool.schema.enum(["换日", "不换日"]).optional().describe("晚子时(23-24点)日柱处理:换日=归次日(默认),不换日=按当日"),
+    经度: tool.schema.number().optional().describe("起卦地经度(东经正)。默认 120(东八区);传入非120时用真太阳时定时辰"),
   },
   execute: duangua,
 });

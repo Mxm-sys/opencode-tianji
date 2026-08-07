@@ -69,3 +69,9 @@ test("7. meihua.json 两处 byte 一致", () => {
   const b = fs.readFileSync(path.resolve(import.meta.dir, "../../知识库/data/meihua.json"));
   expect(a.equals(b)).toBe(true);
 });
+
+test("8. 输出含 [口径] 披露行", async () => {
+  const r = await meihuaExecute({ 卦名: "乾", 动爻: [1] }, ctx);
+  expect(r).toContain("[口径]");
+  expect(r).toContain("astronomy-engine 天文算法");
+});

@@ -138,14 +138,15 @@ export function parseDT(s?: string): { y: number; m: number; d: number; h: numbe
   throw new Error(`无法解析时间: ${s}`);
 }
 
-export function fullGanZhi(t: { y: number; m: number; d: number; h: number }) {
-  return {
-    ygz: gz.getYearGanZhi(t.y, t.m, t.d),
-    mgz: gz.getMonthGanZhi(t.y, t.m, t.d),
-    dgz: gz.getDayGanZhi(t.y, t.m, t.d),
-    hgz: gz.getHourGanZhi(t.y, t.m, t.d, t.h),
-  };
+export type GzOpts = gz.GzOpts;
+
+/** 四柱干支(带时分,经 ../lib/ganzhi getFullGanZhi 一次算齐;节气/晚子时/真太阳时口径见 lib/ganzhi) */
+export function fullGanZhi(t: { y: number; m: number; d: number; h: number }, opts?: GzOpts) {
+  return gz.getFullGanZhi(t.y, t.m, t.d, t.h, opts);
 }
+
+/** 口径披露固定行(P1:所有工具输出末尾追加) */
+export const 口径披露 = gz.口径披露;
 
 /** 动爻位规范化:1~6 的整数、去重、升序 */
 export function normDongs(dongs?: number[]): number[] {
@@ -243,12 +244,12 @@ export interface Pan {
 }
 
 /** 排盘核心:由卦名+动爻+时间构建完整六爻盘(六神/六亲/纳甲/世应动空破/旬空/月破/六冲六合三合/旺相休囚/卦身) */
-export function buildPan(name: string, dongsArg: number[], dt?: string): Pan {
+export function buildPan(name: string, dongsArg: number[], dt?: string, opts?: GzOpts): Pan {
   const gua = guaOf(name);
   if (!gua) throw new Error(`未找到卦:「${name}」(可查知识库/data/liushi_si_gua.json 六十四卦卦名)`);
   const dongs = normDongs(dongsArg);
   const t = parseDT(dt);
-  const gzFull = fullGanZhi(t);
+  const gzFull = fullGanZhi(t, opts);
   const order = liuShenOrder();
   const s0 = order.indexOf(liuShenStart(gzFull.dgz.gan));
   const xk = xunKong(gzFull.dgz);

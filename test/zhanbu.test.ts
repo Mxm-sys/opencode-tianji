@@ -136,3 +136,39 @@ test("14. qigua zi 多字「好运」→ 前半后半笔画", async () => {
   expect(r).toContain("运");
   expect(r).toContain("笔画");
 });
+
+test("15. qigua coins 同 seed 两次动爻/输出完全一致(可复现)", async () => {
+  const args = { method: "coins", seed: 12345, datetime: "2024-02-10 12:00" };
+  const r1 = await tools.qigua.execute(args, ctx);
+  const r2 = await tools.qigua.execute(args, ctx);
+  expect(r1).toContain("seed=0x");
+  expect(r1).toBe(r2);
+});
+
+test("16. coins 无 seed 自动生成并输出 seed=0x…", async () => {
+  const r = await tools.qigua.execute({ method: "coins", datetime: "2024-02-10 12:00" }, ctx);
+  expect(r).toMatch(/seed=0x[0-9a-f]+/);
+});
+
+test("17. qigua/paipan/duangua/cha 输出含 [口径] 披露行", async () => {
+  const q = await tools.qigua.execute({ method: "time", datetime: "2024-02-10 12:00" }, ctx);
+  const p = await tools.paipan.execute({ 卦名: "乾", datetime: "2024-02-10 12:00" }, ctx);
+  const d = await tools.duangua.execute({ 卦名: "乾", 占事: "求财", datetime: "2024-02-10 12:00" }, ctx);
+  const c = await tools.cha.execute({ 卦名: "乾" }, ctx);
+  for (const r of [q, p, d, c]) {
+    expect(r).toContain("[口径]");
+    expect(r).toContain("astronomy-engine 天文算法");
+  }
+});
+
+test("18. 晚子时:qigua datetime=2024-02-10 23:30 默认换日 → 日柱乙巳、时柱丙子", async () => {
+  const r = await tools.qigua.execute({ method: "manual", 卦名: "乾", datetime: "2024-02-10 23:30" }, ctx);
+  expect(r).toContain("乙巳日");
+  expect(r).toContain("丙子时");
+});
+
+test("19. 晚子时:不换日 时 datetime=2024-02-10 23:30 → 日柱甲辰(当日)", async () => {
+  const r = await tools.qigua.execute({ method: "manual", 卦名: "乾", datetime: "2024-02-10 23:30", 晚子时: "不换日" }, ctx);
+  expect(r).toContain("甲辰日");
+  expect(r).toContain("甲子时");
+});

@@ -8,8 +8,8 @@ import * as path from "node:path";
 import { baziExecute, shiShen } from "../plugins/bazi";
 import { getYearGanZhi, getMonthGanZhi, getDayGanZhi, getHourGanZhi } from "../lib/ganzhi";
 
-const run = (datetime?: string, 性别?: string) =>
-  baziExecute({ datetime, 性别 });
+const run = (datetime?: string, 性别?: string, 晚子时?: "换日" | "不换日") =>
+  baziExecute({ datetime, 性别, 晚子时 });
 
 test("1. 1990-05-15 12:00 四柱确定性验证(与 lib/ganzhi.ts 算法一致)", async () => {
   const ygz = getYearGanZhi(1990, 5, 15);
@@ -83,4 +83,18 @@ test("7. bazi.json 两处 byte 级一致", () => {
   const a = fs.readFileSync(path.join(import.meta.dir, "..", "data", "bazi.json"), "utf8");
   const b = fs.readFileSync("/home/mxm/桌面/fun/占卜/知识库/data/bazi.json", "utf8");
   expect(a).toBe(b);
+});
+
+test("8. 输出含 [口径] 披露行与日主所属", async () => {
+  const r = await run("2024-02-10 12:00", "男");
+  expect(r).toContain("[口径]");
+  expect(r).toContain("astronomy-engine 天文算法");
+  expect(r).toContain("日主所属");
+});
+
+test("9. 晚子时:2024-02-10 23:30 默认换日 → 日柱乙巳(次日);不换日 → 甲辰(当日)", async () => {
+  const huan = await run("2024-02-10 23:30", "男");
+  expect(huan).toContain("日柱 乙巳(日主)");
+  const buHuan = await run("2024-02-10 23:30", "男", "不换日");
+  expect(buHuan).toContain("日柱 甲辰(日主)");
 });

@@ -110,7 +110,7 @@ async function meihuaExecute(args: {
   if (!gua) throw new Error(`未找到卦:「${args.卦名}」`);
   const dongs = normDongs(args.动爻);
   const t = parseDT(args.datetime);
-  const mgz = gz.getMonthGanZhi(t.y, t.m, t.d);
+  const mgz = gz.getFullGanZhi(t.y, t.m, t.d, t.h).mgz;
   const season = seasonOf(mgz.zhi);
   const meihua = loadMeihua();
 
@@ -162,7 +162,7 @@ async function meihuaExecute(args: {
     `${item ? `对照《梅花易数》对「${args.占事}」的断法:${item.白话}` : ""}` +
     `${verdictAdvice(sk.verdict, qi.state)}。`;
   out.push(`[总结]: ${summary}`);
-  out.push("", "数据出处: meihua.json / ganzhi.json / bagua.json", "仅供参考,现实决策请结合实际情况。");
+  out.push("", "数据出处: meihua.json / ganzhi.json / bagua.json", hex.口径披露(), "仅供参考,现实决策请结合实际情况。");
   return out.join("\n");
 }
 

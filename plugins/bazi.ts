@@ -152,13 +152,10 @@ function dayunPills(mgz: { gan: string; zhi: string }, forward: boolean, n = 8):
 
 /* ==================== 执行与输出 ==================== */
 
-export async function baziExecute(args: { datetime?: string; 性别?: string } = {}): Promise<string> {
+export async function baziExecute(args: { datetime?: string; 性别?: string; 晚子时?: "换日" | "不换日"; 经度?: number } = {}): Promise<string> {
   const sex = args.性别 ?? "男";
   const t = parseDT(args.datetime);
-  const ygz = gz.getYearGanZhi(t.y, t.m, t.d);
-  const mgz = gz.getMonthGanZhi(t.y, t.m, t.d);
-  const dgz = gz.getDayGanZhi(t.y, t.m, t.d);
-  const hgz = gz.getHourGanZhi(t.y, t.m, t.d, t.h);
+  const { ygz, mgz, dgz, hgz } = gz.getFullGanZhi(t.y, t.m, t.d, t.h, { 晚子时: args.晚子时, 经度: args.经度 });
   const pills = [ygz, mgz, dgz, hgz];
   const dayGan = dgz.gan;
 
@@ -226,6 +223,7 @@ export async function baziExecute(args: { datetime?: string; 性别?: string } =
   );
 
   out.push("", "数据出处: bazi.json(藏干/十神规则/大运规则/五行权数) / ganzhi.json(天干五行阴阳/六甲纳音) / lib/ganzhi.ts 算法");
+  out.push(hex.口径披露(), `日主所属: 日柱天干${dayGan}(五行属${dayWX}),代表命主自己`);
   out.push("仅供参考,现实决策请结合实际情况。");
   return out.join("\n");
 }
@@ -235,6 +233,8 @@ const baziTool = tool({
   args: {
     datetime: tool.schema.string().optional().describe("出生时间 ISO 字符串(默认现在)"),
     性别: tool.schema.enum(["男", "女"]).optional().describe("用于大运顺逆(默认男)"),
+    晚子时: tool.schema.enum(["换日", "不换日"]).optional().describe("晚子时(23-24点)日柱处理:换日=归次日(默认),不换日=按当日"),
+    经度: tool.schema.number().optional().describe("出生地经度(东经正)。默认 120(东八区);传入非120时用真太阳时定时辰"),
   },
   execute: baziExecute,
 });

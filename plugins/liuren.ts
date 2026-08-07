@@ -11,7 +11,7 @@ import type { Plugin } from "@opencode-ai/plugin";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { DATA_DIR } from "../lib/db";
-import { DI_ZHI, getHourZhi, getMonthGanZhi } from "../lib/ganzhi";
+import { DI_ZHI, getHourZhi, getMonthGanZhiEx, 口径披露 } from "../lib/ganzhi";
 
 const DI = DI_ZHI as readonly string[];
 
@@ -59,8 +59,8 @@ function parseDT(s?: string): { y: number; m: number; d: number; h: number } {
 }
 
 /** 农历近似月(据节气月支:寅月=正月…丑月=腊月),仅用于展示 */
-function lunarMonthOf(t: { y: number; m: number; d: number }): number {
-  const zhi = getMonthGanZhi(t.y, t.m, t.d).zhi;
+function lunarMonthOf(t: { y: number; m: number; d: number; h: number }): number {
+  const zhi = getMonthGanZhiEx(t.y, t.m, t.d, t.h).zhi;
   return ((DI.indexOf(zhi) - DI.indexOf("寅") + 12) % 12) + 1;
 }
 
@@ -108,6 +108,7 @@ async function liuren(args: {
     `白话: ${g.白话}`,
     `[总结]: ${g.总结}`,
     "数据出处: liuren.json",
+    口径披露(),
     "仅供参考,现实决策请结合实际情况。",
   ];
   return out.join("\n");
