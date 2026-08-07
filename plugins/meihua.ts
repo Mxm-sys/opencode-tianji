@@ -5,7 +5,8 @@
  * 体为主、用为事、互卦为事之中应、变卦为事之末应;按五行生克断吉凶、
  * 按季节看体卦卦气旺衰,并按十八类占断辞出白话断语。
  * 数据:体用判定/互卦起例/卦气旺衰/体用生克总诀/十八类占断辞据 meihua.json;
- * 五行生克据 ganzhi.json·五行;八卦五行据 bagua.json。均经 ../lib/db 加载。
+ * 五行生克据 ganzhi.json·五行;八卦五行据 bagua.json。
+ * 共享计算(五行生克/卦查找/变卦/季节等)取自 ../lib/hex。
  */
 import { tool } from "@opencode-ai/plugin";
 import type { Plugin } from "@opencode-ai/plugin";
@@ -13,46 +14,20 @@ import * as db from "../lib/db";
 import * as gz from "../lib/ganzhi";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import * as hex from "../lib/hex";
 
-const DI = gz.DI_ZHI as readonly string[];
-const WEI = ["初爻", "二爻", "三爻", "四爻", "五爻", "六爻"];
+const DI = hex.DI;
+const WEI = hex.WEI;
+const { guaOf, guaOfTrigrams, splitUpDown, bianGuaName, seasonOf, normDongs, parseDT } = hex;
+const { SHENG, KE } = hex;
+const BAGUA_WX = hex.BAGUA_WX;
+const BAGUA_SYM = hex.BAGUA_SYM;
+type Gua = hex.Gua;
 
-/** 先天八卦爻画(自下而上,1=阳 0=阴),与 zhanbu.ts 一致 */
-const TRIGRAM_LINES: Record<string, number[]> = {
-  乾: [1, 1, 1], 兑: [1, 1, 0], 离: [1, 0, 1], 震: [1, 0, 0],
-  巽: [0, 1, 1], 坎: [0, 1, 0], 艮: [0, 0, 1], 坤: [0, 0, 0],
-};
-const LINES_TO_TRIGRAM: Record<string, string> = Object.fromEntries(
-  Object.entries(TRIGRAM_LINES).map(([n, l]) => [l.join(""), n]),
-);
-
-type Gua = { 卦名: string; 卦符: string; 上下卦: string; [k: string]: unknown };
-
-const guaList = (): Gua[] => db.loadGua64() as unknown as Gua[];
-const guaOf = (name: string): Gua | undefined => guaList().find((g) => g.卦名 === name);
-const guaOfTrigrams = (up: string, down: string): Gua | undefined =>
-  guaList().find((g) => g.上下卦 === `${up}上${down}下`);
-const splitUpDown = (s: string): [string, string] => [s[0], s[2]];
-
-/** 五行生克表(据 ganzhi.json 五行·相生/相克) */
-const WX_CYCLE = db.loadGanzhi().五行 as { 相生: string; 相克: string };
-const SHENG = new Map<string, string>();
-const KE = new Map<string, string>();
-for (const [a, b] of WX_CYCLE.相生.split("，").map((x) => [x[0], x[2]] as const)) SHENG.set(a, b);
-for (const [a, b] of WX_CYCLE.相克.split("，").map((x) => [x[0], x[2]] as const)) KE.set(a, b);
-
-/** 八卦五行与卦符(据 bagua.json) */
-const BAGUA = db.loadBaguas() as { 卦名: string; 卦符: string; 五行: string }[];
-const BAGUA_WX = new Map(BAGUA.map((b) => [b.卦名, b.五行]));
-const BAGUA_SYM = new Map(BAGUA.map((b) => [b.卦名, b.卦符]));
-
-/** meihua.json(包内 data,与 db.ts 同路径)。db.ts 未提供专用 loader,此处直读 */
+/** meihua.json(经 db.DATA_DIR 读取)。各主题均条目标为数组(新 schema) */
 type MeihuaJson = {
-  体用判定: { 原文: string; 出处: string };
-  互卦起例: { 原文: string; 出处: string };
-  卦气旺衰: { 盛: Record<string, string[]>; 衰: Record<string, string[]>; 原文旺: string; 原文衰: string; 出处: string };
-  体用生克总诀: { 原文: string; 出处: string };
-  十八类占断辞: Record<string, { 原文: string; 白话: string; 出处: string }>;
+  卦气旺衰: { 盛: Record<string, string[]>; 衰: Record<string, string[]>; 原文旺: string; 原文衰: string; 出处: string }[];
+  十八类占断辞: { 类: string; 原文: string; 白话: string; 出处: string }[];
 };
 let meihuaCache: MeihuaJson | null = null;
 function loadMeihua(): MeihuaJson {
@@ -63,52 +38,12 @@ function loadMeihua(): MeihuaJson {
   return meihuaCache;
 }
 
-/** 解析 datetime(ISO 或 "YYYY-MM-DD HH:mm"),不传默认"现在"。时分缺省取午时(12) */
-function parseDT(s?: string): { y: number; m: number; d: number; h: number } {
-  if (!s) {
-    const n = new Date();
-    return { y: n.getFullYear(), m: n.getMonth() + 1, d: n.getDate(), h: n.getHours() };
-  }
-  const m = /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[T\s](\d{1,2}))?/.exec(s.trim());
-  if (m) return { y: +m[1], m: +m[2], d: +m[3], h: m[4] ? +m[4] : 12 };
-  const n = new Date(s);
-  if (!Number.isNaN(n.getTime())) return { y: n.getFullYear(), m: n.getMonth() + 1, d: n.getDate(), h: n.getHours() };
-  throw new Error(`无法解析时间: ${s}`);
-}
-
-/** 动爻位规范化:1~6 的整数、去重、升序 */
-function normDongs(dongs?: number[]): number[] {
-  if (!dongs) return [];
-  return [...new Set(dongs.map((n) => Math.round(n)).filter((n) => n >= 1 && n <= 6))].sort((a, b) => a - b);
-}
-
-/** 季节:据节气月支(寅卯辰春/巳午未夏/申酉戌秋/亥子丑冬) */
-function seasonOf(zhi: string): string {
-  const i = DI.indexOf(zhi);
-  if (i >= 2 && i <= 4) return "春";
-  if (i >= 5 && i <= 7) return "夏";
-  if (i >= 8 && i <= 10) return "秋";
-  return "冬";
-}
-
-/** 由本卦+动爻求变卦卦名(动爻阳变阴、阴变阳后重组上下卦查表) */
-function bianGuaName(gua: Gua, dongs: number[]): string {
-  if (dongs.length === 0) return gua.卦名;
-  const [up, down] = splitUpDown(gua.上下卦);
-  const u = [...TRIGRAM_LINES[up]], d = [...TRIGRAM_LINES[down]];
-  for (const p of dongs) {
-    if (p <= 3) d[p - 1] = 1 - d[p - 1];
-    else u[p - 4] = 1 - u[p - 4];
-  }
-  return guaOfTrigrams(LINES_TO_TRIGRAM[u.join("")], LINES_TO_TRIGRAM[d.join("")])?.卦名 ?? "?";
-}
-
 /** 互卦:去初爻(第1爻)与上爻(第6爻),中四爻分两卦;下互=2、3、4爻,上互=3、4、5爻 */
 function huGua(gua: Gua): { down: string; up: string } {
   const [up, down] = splitUpDown(gua.上下卦);
-  const lines = [...TRIGRAM_LINES[down], ...TRIGRAM_LINES[up]]; // 自下而上 6 爻
-  const d = LINES_TO_TRIGRAM[[lines[1], lines[2], lines[3]].join("")];
-  const u = LINES_TO_TRIGRAM[[lines[2], lines[3], lines[4]].join("")];
+  const lines = [...hex.TRIGRAM_LINES[down], ...hex.TRIGRAM_LINES[up]]; // 自下而上 6 爻
+  const d = hex.LINES_TO_TRIGRAM[[lines[1], lines[2], lines[3]].join("")];
+  const u = hex.LINES_TO_TRIGRAM[[lines[2], lines[3], lines[4]].join("")];
   return { down: d, up: u };
 }
 
@@ -150,7 +85,7 @@ function shengKe(tiWX: string, yongWX: string): { label: string; verdict: string
 
 /** 卦气旺衰:按季节与体卦判 盛(当令)/衰(失令)/平(据 meihua.json·卦气旺衰) */
 function guaQiState(season: string, ti: string): { state: string; line: string } {
-  const q = loadMeihua().卦气旺衰;
+  const q = loadMeihua().卦气旺衰[0];
   const sheng = q.盛[season] ?? [];
   const shuai = q.衰[season] ?? [];
   if (sheng.includes(ti)) return { state: "旺", line: `现值${season}季,${ti}五行当令,体卦旺(白话:体卦得时令之气,气势强盛,做事有底气)` };
@@ -179,7 +114,6 @@ async function meihuaExecute(args: {
   const season = seasonOf(mgz.zhi);
   const meihua = loadMeihua();
 
-  const [up, down] = splitUpDown(gua.上下卦);
   const bian = bianGuaName(gua, dongs);
   const bianGua = dongs.length ? guaOf(bian) : undefined;
   const hu = huGua(gua);
@@ -188,7 +122,7 @@ async function meihuaExecute(args: {
   const yongWX = BAGUA_WX.get(ty.yong) ?? "?";
   const sk = shengKe(tiWX, yongWX);
   const qi = guaQiState(season, ty.ti);
-  const item = args.占事 ? meihua.十八类占断辞[args.占事] : undefined;
+  const item = args.占事 ? meihua.十八类占断辞.find((e) => e.类 === args.占事) : undefined;
 
   const out: string[] = [];
   out.push(
@@ -243,7 +177,17 @@ const meihuaTool = tool({
   execute: meihuaExecute,
 });
 
+/** 模块自声明:元信息 / 工具 / 数据(供 zhanbu 聚合器合并) */
+export const 元信息 = {
+  名: "梅花易数",
+  书号: [1, 5],
+  法式: ["体用断卦", "时间起卦", "报数起卦", "字占"],
+  说明: "待实现:大衍筮法",
+};
+export const 工具 = { meihua: meihuaTool };
+export const 数据 = ["meihua.json", "bagua.json", "ganzhi.json"];
+
 export { meihuaTool, meihuaExecute };
 
-const plugin: Plugin = async () => ({ tool: { meihua: meihuaTool } });
+const plugin: Plugin = async () => ({ tool: 工具 });
 export default plugin;

@@ -1,27 +1,26 @@
 /**
- * 占卜自定义工具插件:qigua(起卦)/paipan(排盘)/duangua(断卦辅助)/cha(查卦)
+ * 占卜自定义工具插件聚合器:qigua(起卦)/paipan(排盘)/duangua(断卦辅助)/cha(查卦)
+ * + 聚合 meihua(梅花易数)/bazi(八字四柱)/liuren(小六壬)。
  *
  * 数据来源:全部取自 知识库/data/*.json(经 ../lib/db 惰性加载),
  * 卦辞/爻辞/纳甲/六亲/六神/旬空/月破/旺相休囚等一律查数据,不硬编码。
- * 计算内核复用 ../lib/ganzhi 的公历→干支换算。
+ * 六爻/梅花共享计算核心在 ../lib/hex,公历→干支换算复用 ../lib/ganzhi。
  */
 import { tool } from "@opencode-ai/plugin";
 import type { Plugin } from "@opencode-ai/plugin";
 import * as db from "../lib/db";
-import * as gz from "../lib/ganzhi";
-import { meihuaTool } from "./meihua";
-import { baziTool } from "./bazi";
-import { liurenTool } from "./liuren";
+import * as hex from "../lib/hex";
+import * as meihua from "./meihua";
+import * as bazi from "./bazi";
+import * as liuren from "./liuren";
 
-/* ==================== 常量与数据表 ==================== */
-
-const DI = gz.DI_ZHI as readonly string[];
-const TG = gz.TIAN_GAN as readonly string[];
-const WEI = ["初爻", "二爻", "三爻", "四爻", "五爻", "六爻"];
-/** 阳支:阳世从子月起;阴世从午月生(火珠林·六亲根源;卜筮正宗·安月卦身诀) */
-const YANG_ZHI = new Set(["子", "寅", "辰", "午", "申", "戌"]);
-/** 先天数:乾1兑2离3震4巽5坎6艮7坤8(梅花易数·周易卦数)。余数 1~8 反推卦,余 0 取 8 = 坤 */
-const NUM_TO_GUA: Record<number, string> = { 1: "乾", 2: "兑", 3: "离", 4: "震", 5: "巽", 6: "坎", 7: "艮", 8: "坤" };
+const DI = hex.DI;
+const TG = hex.TG;
+const WEI = hex.WEI;
+const NUM_TO_GUA = hex.NUM_TO_GUA;
+const LINES_TO_TRIGRAM = hex.LINES_TO_TRIGRAM;
+const { guaList, guaOf, guaOfTrigrams, splitUpDown } = hex;
+const { parseDT, fullGanZhi, normDongs, bianGuaName, relation } = hex;
 
 /** 常用汉字笔画表(字占用)。未收录的字按 Unicode 码点 mod 8 兜底,与梅花字占"以笔画起卦"的简化近似 */
 const STROKE_POS: Map<string, number> = new Map([
@@ -32,181 +31,8 @@ const STROKE_POS: Map<string, number> = new Map([
   ["他", 5], ["她", 6], ["来", 7], ["去", 5], ["是", 9], ["非", 8], ["有", 6], ["无", 4], ["成", 6], ["败", 8],
 ]);
 
-/**
- * 先天八卦爻画(自下而上,1=阳 0=阴)。
- * 数据文件(liushi_si_gua.json)只存卦符与上下卦名,不存每爻阴阳;
- * 此处按通行《周易》八卦卦画硬编码(乾三连/兑上缺/离中虚/震仰盂/巽下断/坎中满/艮覆碗/坤六断),
- * 仅用于由动爻翻转上下卦求变卦名,不产生任何数据文件之外的内容。
- */
-const TRIGRAM_LINES: Record<string, number[]> = {
-  乾: [1, 1, 1], 兑: [1, 1, 0], 离: [1, 0, 1], 震: [1, 0, 0],
-  巽: [0, 1, 1], 坎: [0, 1, 0], 艮: [0, 0, 1], 坤: [0, 0, 0],
-};
-const LINES_TO_TRIGRAM: Record<string, string> = Object.fromEntries(
-  Object.entries(TRIGRAM_LINES).map(([n, l]) => [l.join(""), n]),
-);
-
-type Gua = {
-  卦名: string; 卦符: string; 上下卦: string; 八宫: string; 宫五行: string;
-  世爻: number; 应爻: number; 纳甲: [string, string][]; 六亲: [string, string][]; 卦辞: string;
-  [k: string]: unknown;
-};
-
-const guaList = (): Gua[] => db.loadGua64() as unknown as Gua[];
-const guaOf = (name: string): Gua | undefined => guaList().find((g) => g.卦名 === name);
-const guaOfTrigrams = (up: string, down: string): Gua | undefined =>
-  guaList().find((g) => g.上下卦 === `${up}上${down}下`);
-/** "乾上乾下" → ["乾","乾"]。八卦名皆为单字,固定第0、第2位 */
-const splitUpDown = (s: string): [string, string] => [s[0], s[2]];
-
-/** 五行生克表(据 ganzhi.json 五行·相生/相克)。sheng[A]=B 即 A生B,ke[A]=B 即 A克B */
-const WX_CYCLE = db.loadGanzhi().五行 as { 相生: string; 相克: string; 旺相休囚: object[] };
-const SHENG = new Map<string, string>();
-const KE = new Map<string, string>();
-for (const [a, b] of WX_CYCLE.相生.split("，").map((x) => [x[0], x[2]] as const)) SHENG.set(a, b);
-for (const [a, b] of WX_CYCLE.相克.split("，").map((x) => [x[0], x[2]] as const)) KE.set(a, b);
-
-const zhiWX = (): Map<string, string> => new Map((db.loadGanzhi().地支 as { 支: string; 五行: string }[]).map((z) => [z.支, z.五行]));
-/** 六神起例:日干→首神(据 nayin.json·六神起例) */
-const liuShenStart = (gan: string): string => {
-  const q = db.loadNayin().六神起例 as Record<string, string>;
-  for (const [k, v] of Object.entries(q)) {
-    if (k === "原文" || k === "出处") continue;
-    if (k.includes(gan)) return v;
-  }
-  return "青龙";
-};
-const liuShenOrder = (): string[] => db.loadNayin().六神顺序 as unknown as string[];
-
-const CHONG = new Map<string, string>();
-for (const c of db.loadGanzhi().六冲 as { 冲: string }[]) { const s = c.冲; CHONG.set(s[0], s[1]); CHONG.set(s[1], s[0]); }
-const HE = new Map<string, string>();
-for (const c of db.loadGanzhi().六合 as { 合: string }[]) { const s = c.合; HE.set(s[0], s[1]); HE.set(s[1], s[0]); }
-const SANHE: { 局: string; 三支: string[] }[] = (db.loadGanzhi().三合 as { 局: string; 三支: string[] }[]);
-const XUNKONG: Record<string, string[]> = Object.fromEntries(
-  (db.loadGanzhi().旬空 as { 旬: string; 空: string[] }[]).map((x) => [x.旬, x.空]),
-);
-const WANGXIANG: Record<string, { 旺: string; 相: string; 休: string; 囚: string; 死: string }> = {};
-for (const x of WX_CYCLE.旺相休囚 as { 季节: string; 旺: string; 相: string; 休: string; 囚: string; 死: string }[]) {
-  WANGXIANG[x.季节] = x;
-}
-
-/** 六亲规则:生我者父母,我生者子孙,克我者官鬼,我克者妻财,比和者兄弟(据 nayin.json·六亲规则) */
-function qinByWX(gongWX: string, wx: string): string {
-  if (wx === gongWX) return "兄弟";
-  if (SHENG.get(gongWX) === wx) return "子孙";
-  if (SHENG.get(wx) === gongWX) return "父母";
-  if (KE.get(gongWX) === wx) return "妻财";
-  if (KE.get(wx) === gongWX) return "官鬼";
-  return "?";
-}
-
-/* ==================== 时间解析 ==================== */
-
-/** 解析 datetime(ISO 或 "YYYY-MM-DD HH:mm"),不传默认"现在"。时分缺省取午时(12) */
-function parseDT(s?: string): { y: number; m: number; d: number; h: number } {
-  if (!s) {
-    const n = new Date();
-    return { y: n.getFullYear(), m: n.getMonth() + 1, d: n.getDate(), h: n.getHours() };
-  }
-  const m = /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[T\s](\d{1,2}))?/.exec(s.trim());
-  if (m) return { y: +m[1], m: +m[2], d: +m[3], h: m[4] ? +m[4] : 12 };
-  const n = new Date(s);
-  if (!Number.isNaN(n.getTime())) return { y: n.getFullYear(), m: n.getMonth() + 1, d: n.getDate(), h: n.getHours() };
-  throw new Error(`无法解析时间: ${s}`);
-}
-
-function fullGanZhi(t: { y: number; m: number; d: number; h: number }) {
-  return {
-    ygz: gz.getYearGanZhi(t.y, t.m, t.d),
-    mgz: gz.getMonthGanZhi(t.y, t.m, t.d),
-    dgz: gz.getDayGanZhi(t.y, t.m, t.d),
-    hgz: gz.getHourGanZhi(t.y, t.m, t.d, t.h),
-  };
-}
-
-/** 动爻位规范化:1~6 的整数、去重、升序 */
-function normDongs(dongs?: number[]): number[] {
-  if (!dongs) return [];
-  return [...new Set(dongs.map((n) => Math.round(n)).filter((n) => n >= 1 && n <= 6))].sort((a, b) => a - b);
-}
-
-/** 由本卦+动爻求变卦卦名(动爻阳变阴、阴变阳后重组上下卦查表) */
-function bianGuaName(gua: Gua, dongs: number[]): string {
-  if (dongs.length === 0) return gua.卦名;
-  const [up, down] = splitUpDown(gua.上下卦);
-  const u = [...TRIGRAM_LINES[up]], d = [...TRIGRAM_LINES[down]];
-  for (const p of dongs) {
-    if (p <= 3) d[p - 1] = 1 - d[p - 1];
-    else u[p - 4] = 1 - u[p - 4];
-  }
-  return guaOfTrigrams(LINES_TO_TRIGRAM[u.join("")], LINES_TO_TRIGRAM[d.join("")])?.卦名 ?? "?";
-}
-
-/* ==================== 排盘计算 ==================== */
-
-/** 旬空:由日干支推六甲旬(甲子/甲戌/甲申/甲午/甲辰/甲寅),空亡据 ganzhi.json·旬空 */
-function xunKong(dgz: { gan: string; zhi: string }): { xun: string; kong: string[] } {
-  const g = TG.indexOf(dgz.gan);
-  const z = DI.indexOf(dgz.zhi);
-  let seq = z;
-  for (let k = 0; k < 10; k++) {
-    if ((z + 12 * k) % 10 === g) { seq = z + 12 * k; break; }
-  }
-  const xunZhi = ["子", "戌", "申", "午", "辰", "寅"][Math.floor(seq / 10)];
-  const xun = "甲" + xunZhi;
-  return { xun, kong: XUNKONG[xun] ?? [] };
-}
-
-/** 月破:月建地支所冲之支(六冲据 ganzhi.json) */
-const yuePo = (mgz: { zhi: string }): string => CHONG.get(mgz.zhi) ?? "";
-
-/** 季节:据节气月支(寅卯辰春/巳午未夏/申酉戌秋/亥子丑冬) */
-function seasonOf(zhi: string): string {
-  const i = DI.indexOf(zhi);
-  if (i >= 2 && i <= 4) return "春";
-  if (i >= 5 && i <= 7) return "夏";
-  if (i >= 8 && i <= 10) return "秋";
-  return "冬";
-}
-
-/** 爻地支五行在此季节的旺/相/休/囚/死(据 ganzhi.json·五行·旺相休囚) */
-function wangState(monthZhi: string, wx: string): string {
-  const table = WANGXIANG[seasonOf(monthZhi)];
-  if (!table) return "?";
-  if (table.旺 === wx) return "旺";
-  if (table.相 === wx) return "相";
-  if (table.休 === wx) return "休";
-  if (table.囚 === wx) return "囚";
-  if (table.死 === wx) return "死";
-  return "?";
-}
-
-/** 卦身:阳世从子月起、阴世从午月生,自初爻数至世爻位得卦身地支(据 nayin.json·卦身/06安月卦身诀) */
-function guaBody(gua: Gua, gongWX: string): { zhi: string; wx: string; qin: string; line: number | null } {
-  const shi = gua.世爻;
-  const shiZhi = gua.纳甲[shi - 1][0].slice(1);
-  const start = YANG_ZHI.has(shiZhi) ? DI.indexOf("子") : DI.indexOf("午");
-  const zhi = DI[(start + shi - 1) % 12];
-  const wx = zhiWX().get(zhi) ?? "";
-  const idx = gua.纳甲.findIndex((n) => n[0].slice(1) === zhi);
-  return { zhi, wx, qin: idx >= 0 ? gua.六亲[idx][0] : qinByWX(gongWX, wx), line: idx >= 0 ? idx + 1 : null };
-}
-
-export interface LineInfo {
-  wei: string; pos: number; shen: string; qin: string; gzName: string; zhi: string; wx: string;
-  isShi: boolean; isYing: boolean; isDong: boolean; isKong: boolean; isPo: boolean; state: string;
-}
-
-export interface Pan {
-  gua: Gua; dongs: number[]; t: { y: number; m: number; d: number; h: number };
-  gzFull: ReturnType<typeof fullGanZhi>;
-  lines: LineInfo[]; body: ReturnType<typeof guaBody>;
-  xk: { xun: string; kong: string[] }; poZhi: string;
-  chong: string[]; he: string[]; sanhe: string[];
-  shiLine: LineInfo; yingLine: LineInfo; rel: string;
-  yongQin?: string[]; fushen: Record<string, { gzName: string; wx: string; fei: LineInfo; shengKe: string }>;
-}
+type Gua = hex.Gua;
+type Pan = hex.Pan;
 
 /** 占事→用神六亲(据 docs/07_分类占断.md 附:分类取用总表)。'世'/'应' 为特殊用神 */
 function yongShenFor(shi: string): { use: string[]; note: string } {
@@ -227,58 +53,6 @@ function yongShenFor(shi: string): { use: string[]; note: string } {
   };
   const cat = Object.keys(S).find((k) => k !== "其他" && shi.includes(k));
   return S[cat ?? "其他"];
-}
-
-function buildPan(name: string, dongsArg: number[], dt?: string): Pan {
-  const gua = guaOf(name);
-  if (!gua) throw new Error(`未找到卦:「${name}」(可查知识库/data/liushi_si_gua.json 六十四卦卦名)`);
-  const dongs = normDongs(dongsArg);
-  const t = parseDT(dt);
-  const gzFull = fullGanZhi(t);
-  const wxMap = zhiWX();
-  const s0 = liuShenOrder().indexOf(liuShenStart(gzFull.dgz.gan));
-  const xk = xunKong(gzFull.dgz);
-  const po = yuePo(gzFull.mgz);
-  const lines: LineInfo[] = gua.纳甲.map((n, i) => {
-    const pos = i + 1;
-    const zhi = n[0].slice(1);
-    return {
-      wei: WEI[i], pos, shen: liuShenOrder()[(s0 + i) % 6],
-      qin: gua.六亲[i][0], gzName: n[0], zhi, wx: n[1],
-      isShi: gua.世爻 === pos, isYing: gua.应爻 === pos, isDong: dongs.includes(pos),
-      isKong: xk.kong.includes(zhi), isPo: zhi === po,
-      state: wangState(gzFull.mgz.zhi, n[1]),
-    };
-  });
-  const body = guaBody(gua, gua.宫五行);
-  const zhis = lines.map((l) => l.zhi);
-  const chong: string[] = [];
-  const he: string[] = [];
-  for (let i = 0; i < 6; i++) {
-    for (let j = i + 1; j < 6; j++) {
-      if (CHONG.get(zhis[i]) === zhis[j]) chong.push(`${WEI[i]}(${zhis[i]}) 冲 ${WEI[j]}(${zhis[j]})`);
-      if (HE.get(zhis[i]) === zhis[j]) he.push(`${WEI[i]}(${zhis[i]}) 合 ${WEI[j]}(${zhis[j]})`);
-    }
-  }
-  const sanhe: string[] = [];
-  for (const s of SANHE) {
-    const hit = zhis.map((z, i) => (s.三支.includes(z) ? i : -1)).filter((i) => i >= 0);
-    if (hit.length >= 3) sanhe.push(`三合${s.局}局: ${hit.map((i) => `${WEI[i]}(${zhis[i]})`).join("、")}`);
-  }
-  const shiLine = lines[gua.世爻 - 1];
-  const yingLine = lines[gua.应爻 - 1];
-  const rel = relation(shiLine.wx, yingLine.wx);
-  return { gua, dongs, t, gzFull, lines, body, xk, poZhi: po, chong, he, sanhe, shiLine, yingLine, rel, fushen: {} };
-}
-
-/** 五行关系:生/克/比和 */
-function relation(a: string, b: string): string {
-  if (a === b) return "比和";
-  if (SHENG.get(a) === b) return `${a}生${b}`;
-  if (KE.get(a) === b) return `${a}克${b}`;
-  if (SHENG.get(b) === a) return `${b}生${a}`;
-  if (KE.get(b) === a) return `${b}克${a}`;
-  return "?";
 }
 
 /** 飞伏神:用神六亲在卦中缺失时,自本宫首卦(八纯卦)同位取伏神,伏于本卦该爻(飞神)之下(据 docs/05_六爻排盘.md 飞伏神) */
@@ -302,7 +76,7 @@ function fillFuShen(pan: Pan, yongQin: string): void {
 
 /* ==================== 输出辅助 ==================== */
 
-function lineFlags(l: LineInfo): string {
+function lineFlags(l: hex.LineInfo): string {
   const f: string[] = [];
   if (l.isShi) f.push("世");
   if (l.isYing) f.push("应");
@@ -450,13 +224,14 @@ async function qigua(args: {
   );
   if (bianGua) out.push(`变卦卦辞: ${bianGua.卦辞}  (据 liushi_si_gua.json)`);
   out.push("", "数据出处: 起卦算法据梅花易数·时间起卦/增删卜易·铜钱卦;卦名/卦辞/世应据 liushi_si_gua.json");
+  void throwLines;
   return out.join("\n");
 }
 
 /* ==================== 工具 2:排盘 ==================== */
 
 async function paipan(args: { 卦名: string; 动爻?: number[]; datetime?: string; 占事?: string }): Promise<string> {
-  const pan = buildPan(args.卦名, args.动爻, args.datetime);
+  const pan = hex.buildPan(args.卦名, args.动爻, args.datetime);
   const { gua, dongs, gzFull, lines, body, xk, poZhi, shiLine, yingLine } = pan;
   const out: string[] = [
     `【排盘】${gua.卦名} ${gua.卦符} (${gua.上下卦})`,
@@ -470,12 +245,12 @@ async function paipan(args: { 卦名: string; 动爻?: number[]; datetime?: stri
   }
   out.push(
     `──────────────────────────────`,
-    `六神: 据 nayin.json·六神起例(${gzFull.dgz.gan}日起${liuShenStart(gzFull.dgz.gan)}),自初爻起按六神顺序排`,
+    `六神: 据 nayin.json·六神起例(${gzFull.dgz.gan}日起${hex.liuShenStart(gzFull.dgz.gan)}),自初爻起按六神顺序排`,
     `卦身: ${body.zhi}${body.wx}(${body.qin})${body.line ? `,于${WEI[body.line - 1]}` : ",不上卦"}  (阳世从子月起/阴世从午月生,自初爻数至世爻,据 nayin.json·卦身)`,
     `旬空: ${xk.xun}旬 空[${xk.kong.join("、")}]   空亡爻: ${lines.filter((l) => l.isKong).map((l) => l.wei).join("、") || "无"}  (据 ganzhi.json·旬空)`,
     `月破: ${gzFull.mgz.zhi}月冲${poZhi}   破爻: ${lines.filter((l) => l.isPo).map((l) => l.wei).join("、") || "无"}  (据 ganzhi.json·六冲)`,
     `六冲: ${pan.chong.length ? pan.chong.join("；") : "无"}   六合: ${pan.he.length ? pan.he.join("；") : "无"}   三合: ${pan.sanhe.length ? pan.sanhe.join("；") : "无"}`,
-    `旺相休囚(${gzFull.mgz.zhi}月·${seasonOf(gzFull.mgz.zhi)}季,据 ganzhi.json·五行·旺相休囚): ${lines.map((l) => `${l.wei}${l.zhi}${l.wx}${l.state}`).join("、")}`,
+    `旺相休囚(${gzFull.mgz.zhi}月·${hex.seasonOf(gzFull.mgz.zhi)}季,据 ganzhi.json·五行·旺相休囚): ${lines.map((l) => `${l.wei}${l.zhi}${l.wx}${l.state}`).join("、")}`,
     `世应关系: 世(${shiLine.gzName}${shiLine.wx}) 与 应(${yingLine.gzName}${yingLine.wx}) → ${pan.rel}`,
   );
   if (args.占事) {
@@ -505,7 +280,7 @@ async function paipan(args: { 卦名: string; 动爻?: number[]; datetime?: stri
 async function duangua(args: {
   卦名: string; 动爻?: number[]; datetime?: string; 占事: string;
 }): Promise<string> {
-  const pan = buildPan(args.卦名, args.动爻, args.datetime);
+  const pan = hex.buildPan(args.卦名, args.动爻, args.datetime);
   const ys = yongShenFor(args.占事);
   const { gua, gzFull, shiLine, yingLine, xk } = pan;
   const out: string[] = [
@@ -594,10 +369,19 @@ async function cha(args: { 卦名: string; 动爻?: number[] }): Promise<string>
     `【变卦】${dongs.length ? `${bian} ${bianGua?.卦符 ?? ""} (${bianGua?.上下卦 ?? ""})` : "无(静卦)"}` +
       `${bianGua ? `  卦辞:${bianGua.卦辞} (据 liushi_si_gua.json)` : ""}`,
   );
-  const yilin = (db.loadYilin() as { 易林: Record<string, Record<string, string>> }).易林;
-  const section = yilin[`${gua.卦名}之`];
-  const poem = section?.[bian];
+  // 焦氏易林:新 schema 为数组,按 本卦/之卦 查找
+  const yilin = db.loadYilin();
+  const poem = yilin.find((e) => e.本卦 === gua.卦名 && e.之卦 === bian)?.诗;
   out.push(`【焦氏易林】${gua.卦名}之${bian}: ${poem ?? "(易林中无此条)"}  (据 yilin.json)`);
+  const tuan = db.loadTuanXiang();
+  if (tuan) {
+    const tuanList = (tuan as { 六十四卦: { 卦名: string; 彖传?: string; 大象?: string }[] }).六十四卦;
+    const t = tuanList?.find((x) => x.卦名 === gua.卦名);
+    if (t) {
+      if (t.彖传) out.push(`【彖传】${t.彖传}  (据 tuan_xiang.json)`);
+      if (t.大象) out.push(`【大象】${t.大象}  (据 tuan_xiang.json)`);
+    }
+  }
   const baguas = db.loadBaguas() as { 卦名: string; 卦象: string; 卦德: string; 五行: string; 后天方位: string; 取象: string }[];
   const [up, down] = splitUpDown(gua.上下卦);
   for (const [pos, b] of ([[up, "上卦"], [down, "下卦"]] as const)) {
@@ -654,7 +438,12 @@ const chaTool = tool({
   execute: cha,
 });
 
-const zhanbuTools = { qigua: qiguaTool, paipan: paipanTool, duangua: duanguaTool, cha: chaTool, meihua: meihuaTool, bazi: baziTool, liuren: liurenTool };
+/** 六爻核心工具自声明(供聚合器合并) */
+export const 元信息 = { 名: "六爻纳甲", 书号: [1, 2, 3, 4, 5, 6], 法式: ["纳甲筮法", "三枚铜钱六掷", "梅花时间起卦", "报数起卦", "字占起卦"] };
+export const 工具 = { qigua: qiguaTool, paipan: paipanTool, duangua: duanguaTool, cha: chaTool };
+export const 数据 = ["liushi_si_gua.json", "爻辞.json", "nayin.json", "ganzhi.json", "bagua.json", "yilin.json", "books/index.json"];
+
+const zhanbuTools = { ...工具, ...meihua.工具, ...bazi.工具, ...liuren.工具 };
 
 const plugin: Plugin = async () => ({ tool: zhanbuTools });
 export default plugin;

@@ -3,6 +3,7 @@
  *
  * 四柱算法全部复用 ../lib/ganzhi(年立春分界、月节气月、日精确、时五鼠遁)。
  * 十神/藏干/纳音/大运/五行统计规则取自 知识库/data/bazi.json 与 ganzhi.json。
+ * 五行生克/天干五行阴阳/纳音 等共享数据取自 ../lib/hex。
  * 输出严格遵守白话文铁律:术语后紧跟白话翻译,结尾附纯白话总结。
  */
 import { tool } from "@opencode-ai/plugin";
@@ -12,14 +13,15 @@ import * as path from "node:path";
 import * as db from "../lib/db";
 import { DATA_DIR } from "../lib/db";
 import * as gz from "../lib/ganzhi";
+import * as hex from "../lib/hex";
 
 /* ==================== 数据加载 ==================== */
 
 type BaziJson = {
   地支藏干: { 支: string; 藏干: { 干: string; 位: string }[] }[];
-  十神规则: { 表: Record<string, { 同阴阳: string; 异阴阳: string; 白话: string }> };
-  大运: { 说明: string; 起运: string; 简化: string };
-  五行统计: { 权数: { 天干: number; 本气: number; 中气: number; 余气: number } };
+  十神规则: { 关系: string; 同阴阳: string; 异阴阳: string; 白话: string }[];
+  大运: { 说明: string; 起运: string; 简化: string }[];
+  五行统计: { 权数: { 天干: number; 本气: number; 中气: number; 余气: number } }[];
 };
 
 function loadBazi(): BaziJson {
@@ -30,28 +32,20 @@ function loadBazi(): BaziJson {
 
 const bazi = loadBazi();
 
-const TG = gz.TIAN_GAN as readonly string[];
-const DI = gz.DI_ZHI as readonly string[];
+const TG = hex.TG;
+const DI = hex.DI;
+const GAN_WX = hex.GAN_WX;
+const GAN_YY = hex.GAN_YY;
+const SHENG = hex.SHENG;
+const KE = hex.KE;
+const NAYIN = hex.NAYIN;
 
-const GZ = db.loadGanzhi();
-/** 天干五行/阴阳(据 ganzhi.json·天干) */
-const GAN_WX = new Map<string, string>();
-const GAN_YY = new Map<string, string>();
-for (const g of GZ.天干 as { 干: string; 五行: string; 阴阳: string }[]) {
-  GAN_WX.set(g.干, g.五行);
-  GAN_YY.set(g.干, g.阴阳);
-}
-/** 五行生克(据 ganzhi.json·五行·相生/相克) */
-const SHENG = new Map<string, string>();
-const KE = new Map<string, string>();
-for (const [a, b] of (GZ.五行 as { 相生: string }).相生.split("，").map((x) => [x[0], x[2]] as const)) SHENG.set(a, b);
-for (const [a, b] of (GZ.五行 as { 相克: string }).相克.split("，").map((x) => [x[0], x[2]] as const)) KE.set(a, b);
 /** 地支藏干(据 bazi.json·地支藏干) */
 const CANG = new Map<string, { 干: string; 位: string }[]>(
   bazi.地支藏干.map((e) => [e.支, e.藏干]),
 );
-/** 纳音(据 ganzhi.json·六甲) */
-const NAYIN = new Map<string, string>((GZ.六甲 as { 干支: string; 纳音: string }[]).map((s) => [s.干支, s.纳音]));
+/** 十神规则(据 bazi.json·十神规则,新 schema 为数组,按 关系 索引) */
+const SHISHEN_TABLE = new Map(bazi.十神规则.map((r) => [r.关系, r]));
 
 /** 十神白话翻译表 */
 const SS_BAI: Record<string, string> = {
@@ -78,20 +72,21 @@ export function shiShen(dayGan: string, other: string): string {
   else if (SHENG.get(me) === ot) key = "我生者食伤";
   else if (KE.get(ot) === me) key = "克我者官杀";
   else key = "我克者财";
-  const row = bazi.十神规则.表[key];
+  const row = SHISHEN_TABLE.get(key)!;
   const name = sameYY ? row.同阴阳 : row.异阴阳;
   return name.replace(/[（(].*?[）)]$/, "");
 }
 
 /** 五行加权统计(据 bazi.json·五行统计):天干 1,藏干本气1/中气0.5/余气0.3 */
 function wxCount(pills: { gan: string; zhi: string }[], dayGan: string): Map<string, number> {
-  const w = bazi.五行统计.权数;
+  const w = bazi.五行统计[0].权数;
   const m = new Map<string, number>();
   const add = (wx: string, n: number) => m.set(wx, (m.get(wx) ?? 0) + n);
   for (const p of pills) add(GAN_WX.get(p.gan)!, w.天干);
   for (const p of pills) {
     for (const c of CANG.get(p.zhi)!) add(GAN_WX.get(c.干)!, w[c.位 as "本气" | "中气" | "余气"] ?? 0);
   }
+  void dayGan;
   return m;
 }
 
@@ -244,6 +239,16 @@ const baziTool = tool({
   execute: baziExecute,
 });
 
-const plugin: Plugin = async () => ({ tool: { bazi: baziTool } });
+/** 模块自声明:元信息 / 工具 / 数据(供 zhanbu 聚合器合并) */
+export const 元信息 = {
+  名: "八字四柱",
+  书号: [],
+  法式: ["八字四柱"],
+  说明: "通行命理资料(命理通识/渊海子平)",
+};
+export const 工具 = { bazi: baziTool };
+export const 数据 = ["bazi.json", "ganzhi.json"];
+
+const plugin: Plugin = async () => ({ tool: 工具 });
 export default plugin;
 export { baziTool };

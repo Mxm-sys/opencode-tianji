@@ -21,7 +21,7 @@ type Palace = {
   宫名: string; 位: string; 地支: string; 五行: string; 吉凶: string; 主: string;
   断辞: string; 白话: string; 总结: string;
 };
-type LiurenData = { 说明: string; 掌诀起例: string; 六宫: Palace[] };
+type LiurenData = { 六宫: Palace[] };
 
 let cache: LiurenData | undefined;
 function data(): LiurenData {
@@ -123,6 +123,16 @@ const liurenTool = tool({
   execute: liuren,
 });
 
-const plugin: Plugin = async () => ({ tool: { liuren: liurenTool } });
+/** 模块自声明:元信息 / 工具 / 数据(供 zhanbu 聚合器合并) */
+export const 元信息 = {
+  名: "小六壬",
+  书号: [0],
+  法式: ["小六壬"],
+  说明: "通行掌诀(公版通识)",
+};
+export const 工具 = { liuren: liurenTool };
+export const 数据 = ["liuren.json"];
+
+const plugin: Plugin = async () => ({ tool: 工具 });
 export default plugin;
 export { liurenTool };

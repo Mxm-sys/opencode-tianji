@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "tianji/schema/数据文件.schema.json",
+  "title": "数据文件",
+  "description": "占卜知识库 data/*.json 顶层结构 schema。由固定头信息(schema / 主题 / 说明 / 依据)加一个或多个按主题语义命名的内容数组组成;内容数组中每个条目必须携带「来源」溯源字段。",
+  "definitions": {
+    "书引用": {
+      "type": "object",
+      "title": "书引用",
+      "description": "数据文件级「依据」书引用:书号 + 书名,外加用途说明(如底本、互校)。",
+      "properties": {
+        "书号": {
+          "type": "number",
+          "description": "典籍编号,与 books/index.json 中的书号一致。必填。"
+        },
+        "书": {
+          "type": "string",
+          "description": "书名。必填。"
+        },
+        "说明": {
+          "type": "string",
+          "description": "该书在本文件中的用途,如「底本」「互校」。可选。"
+        }
+      },
+      "required": ["书号", "书"],
+      "additionalProperties": true
+    },
+    "条目": {
+      "type": "object",
+      "title": "条目",
+      "description": "内容数组中的单个条目:必带「来源」溯源,其余字段(卦名、卦符等)按主题语义自由定义。",
+      "properties": {
+        "来源": {
+          "$ref": "条目溯源.schema.json#/definitions/来源数组",
+          "description": "本条内容的典籍出处。必填。"
+        }
+      },
+      "required": ["来源"],
+      "additionalProperties": true
+    }
+  },
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "tianji/data/v1",
+      "description": "schema 版本标识,固定值「tianji/data/v1」。必填。"
+    },
+    "主题": {
+      "type": "string",
+      "description": "本文件数据主题,如「六十四卦」「八卦」「干支」。必填。"
+    },
+    "说明": {
+      "type": "string",
+      "description": "文件级说明:数据范围、底本、整理与互校规则等。必填。"
+    },
+    "依据": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/书引用" },
+      "description": "本文件依据的典籍列表。必填。"
+    }
+  },
+  "required": ["schema", "主题", "说明", "依据"],
+  "additionalProperties": {
+    "type": "array",
+    "description": "主题语义命名的内容数组(键名按主题而定,如「六十四卦」「八卦」「六十甲子」),其中每个条目携带「来源」字段。",
+    "items": { "$ref": "#/definitions/条目" }
+  }
+}

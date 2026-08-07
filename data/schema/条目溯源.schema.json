@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "tianji/schema/条目溯源.schema.json",
+  "title": "条目溯源",
+  "description": "占卜知识库「条目溯源」schema。每个数据条目(内容数组中的对象)必带「来源」字段,记录内容出自哪本书的哪一章第几行;支持一条内容源自多书多章。本文件顶层即「来源数组」,可单独校验任意条「来源」字段。",
+  "definitions": {
+    "来源项": {
+      "type": "object",
+      "title": "来源项",
+      "description": "单条典籍出处,精确定位到:书号 + 书 + 卷(可选) + 章 + 行。",
+      "properties": {
+        "书号": {
+          "type": "number",
+          "description": "典籍编号,与 books/index.json 中的书号一致。必填。"
+        },
+        "书": {
+          "type": "string",
+          "description": "书名,如「京氏易传」。必填。"
+        },
+        "卷": {
+          "type": "string",
+          "description": "卷次,如「卷上」。可选。"
+        },
+        "章": {
+          "type": "string",
+          "description": "章名,如「乾卦」。必填。"
+        },
+        "行": {
+          "type": "string",
+          "pattern": "^\\d+(-\\d+)?$",
+          "description": "行号,单行如「9」或范围如「5-61」。必填。"
+        },
+        "页码": {
+          "type": "string",
+          "description": "原书页码。可选。"
+        },
+        "版本说明": {
+          "type": "string",
+          "description": "版本差异说明,如采用某底本、某本校正等。可选。"
+        }
+      },
+      "required": ["书号", "书", "章", "行"],
+      "additionalProperties": true
+    },
+    "来源数组": {
+      "type": "array",
+      "title": "来源数组",
+      "description": "来源数组:允许一条内容源自多书多章,至少含一项。",
+      "items": { "$ref": "#/definitions/来源项" },
+      "minItems": 1
+    }
+  },
+  "$ref": "#/definitions/来源数组"
+}

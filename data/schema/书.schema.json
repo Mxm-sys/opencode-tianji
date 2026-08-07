@@ -1,0 +1,161 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "tianji/schema/书.schema.json",
+  "title": "书层",
+  "description": "占卜知识库 books/*.json 结构 schema。涵盖两类文件:①单本典籍的完整书文件(书号/书名/原名/朝代/作者/底本/总行数/提取状态/篇章数组/已入数据数组/待提取数组/说明);②书目汇总 index.json(说明 + 书数组)。顶层用 oneOf 在两类之间择一。",
+  "definitions": {
+    "篇章": {
+      "type": "object",
+      "title": "篇章",
+      "description": "书文件中的篇章对象:定位到卷(可选)+ 章 + 行,并标记内容类型与结构化进度。",
+      "properties": {
+        "卷": {
+          "type": "string",
+          "description": "卷次,如「卷上」。可选。"
+        },
+        "章": {
+          "type": "string",
+          "description": "章名,如「乾卦」。必填。"
+        },
+        "行": {
+          "type": "string",
+          "pattern": "^\\d+(-\\d+)?$",
+          "description": "行号,单行如「9」或范围如「5-61」。必填。"
+        },
+        "类型": {
+          "enum": ["卦", "爻辞", "传", "口诀", "卦例", "其他"],
+          "description": "篇章内容类型:卦 / 爻辞 / 传 / 口诀 / 卦例 / 其他。必填。"
+        },
+        "已结构化": {
+          "type": "boolean",
+          "description": "该篇章是否已结构化入 data/。必填。"
+        },
+        "结构化到": {
+          "type": "string",
+          "description": "已结构化到的数据文件名,如「liushi_si_gua.json」。可选。"
+        },
+        "备注": {
+          "type": "string",
+          "description": "整理备注。可选。"
+        }
+      },
+      "required": ["章", "行", "类型", "已结构化"],
+      "additionalProperties": true
+    },
+    "提取状态": {
+      "enum": ["未提取", "部分", "已全部结构化"],
+      "description": "结构化提取进度枚举:未提取 / 部分 / 已全部结构化。"
+    },
+    "书文件": {
+      "type": "object",
+      "title": "书文件",
+      "description": "单本典籍完整书文件(对应 books/<书号>.json):元信息 + 篇章目录 + 结构化进度。",
+      "properties": {
+        "书号": {
+          "type": "number",
+          "description": "典籍编号,全库唯一。必填。"
+        },
+        "书名": {
+          "type": "string",
+          "description": "中文常用书名。必填。"
+        },
+        "原名": {
+          "type": "string",
+          "description": "原书全名或题名。可选。"
+        },
+        "朝代": {
+          "type": "string",
+          "description": "成书朝代。可选。"
+        },
+        "作者": {
+          "type": "string",
+          "description": "作者。可选。"
+        },
+        "底本": {
+          "type": "string",
+          "description": "整理所用底本来源,如「ctext 本」。可选。"
+        },
+        "总行数": {
+          "type": "number",
+          "description": "全书行数(按原文文本行计)。必填。"
+        },
+        "提取状态": {
+          "$ref": "#/definitions/提取状态",
+          "description": "全库结构化进度。必填。"
+        },
+        "篇章": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/definitions/篇章" },
+          "description": "篇章目录数组。必填。"
+        },
+        "已入数据": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "已结构化入的数据文件名列表,如「liushi_si_gua.json」。必填。"
+        },
+        "待提取": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "尚未结构化、待提取的篇章或内容列表。必填。"
+        },
+        "说明": {
+          "type": "string",
+          "description": "书级说明(版本、整理情况等)。可选。"
+        }
+      },
+      "required": ["书号", "书名", "总行数", "提取状态", "篇章", "已入数据", "待提取"],
+      "additionalProperties": true
+    },
+    "书摘要": {
+      "type": "object",
+      "title": "书摘要",
+      "description": "index.json 中的书条目:仅摘要信息(书号/书名/原名/总行数/提取状态)。",
+      "properties": {
+        "书号": {
+          "type": "number",
+          "description": "典籍编号。必填。"
+        },
+        "书名": {
+          "type": "string",
+          "description": "书名。必填。"
+        },
+        "原名": {
+          "type": "string",
+          "description": "原书全名或题名。可选。"
+        },
+        "总行数": {
+          "type": "number",
+          "description": "总行数。必填。"
+        },
+        "提取状态": {
+          "$ref": "#/definitions/提取状态",
+          "description": "提取状态。必填。"
+        }
+      },
+      "required": ["书号", "书名", "总行数", "提取状态"]
+    },
+    "书目": {
+      "type": "object",
+      "title": "书目",
+      "description": "index.json 顶层结构:说明 + 书摘要数组。",
+      "properties": {
+        "说明": {
+          "type": "string",
+          "description": "书目说明(收录范围、编号规则等)。必填。"
+        },
+        "书": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/definitions/书摘要" },
+          "description": "典籍摘要数组。必填。"
+        }
+      },
+      "required": ["说明", "书"]
+    }
+  },
+  "oneOf": [
+    { "$ref": "#/definitions/书文件" },
+    { "$ref": "#/definitions/书目" }
+  ]
+}
