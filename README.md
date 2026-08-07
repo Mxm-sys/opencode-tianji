@@ -1,10 +1,14 @@
 # opencode-tianji
 
+[![npm version](https://img.shields.io/npm/v/opencode-tianji)](https://www.npmjs.com/package/opencode-tianji)
+[![npm downloads](https://img.shields.io/npm/dm/opencode-tianji)](https://www.npmjs.com/package/opencode-tianji)
+[![license](https://img.shields.io/npm/l/opencode-tianji)](https://github.com/Mxm-sys/opencode-tianji/blob/main/LICENSE)
+
 六爻占卜 opencode 插件(天机)。提供 4 个工具:起卦、排盘、断卦、查卦。数据(六十四卦、纳甲、干支、纳音、爻辞、焦氏易林)深度绑定包内 `data/`,安装即用,无需额外配置。
 
 ## 安装
 
-在项目 `opencode.json` 中加一行:
+已发布到 npm:[opencode-tianji](https://www.npmjs.com/package/opencode-tianji)。在项目 `opencode.json` 中加一行:
 
 ```json
 {
@@ -58,4 +62,11 @@ cp node_modules/opencode-tianji/templates/command/zhanbu.md .opencode/command/
 ```sh
 bun install
 bun run test    # zhanbu 10 项 + lib 11 项
+```
+
+## 发布
+
+```sh
+npm run build   # 构建插件产物
+npm publish     # 发布到 npm(需 NPM_TOKEN 或 npm login)
 ```
