@@ -1,0 +1,33 @@
+{
+  "name": "opencode-tianji",
+  "version": "0.1.0",
+  "description": "六爻占卜 opencode 插件,起卦/排盘/断卦/查卦,数据来自周易·京氏易传·增删卜易·卜筮正宗·梅花易数·焦氏易林,深度绑定包内数据",
+  "type": "module",
+  "main": "./plugins/zhanbu.ts",
+  "exports": {
+    ".": "./plugins/zhanbu.ts"
+  },
+  "files": [
+    "plugins",
+    "lib",
+    "data",
+    "templates",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "bun test test/"
+  },
+  "keywords": [
+    "opencode",
+    "plugin",
+    "i-ching",
+    "zhouyi",
+    "divination",
+    "zhanbu",
+    "liuyao"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@opencode-ai/plugin": "^1.18.15"
+  }
+}
