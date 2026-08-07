@@ -9,6 +9,9 @@ import { tool } from "@opencode-ai/plugin";
 import type { Plugin } from "@opencode-ai/plugin";
 import * as db from "../lib/db";
 import * as gz from "../lib/ganzhi";
+import { meihuaTool } from "./meihua";
+import { baziTool } from "./bazi";
+import { liurenTool } from "./liuren";
 
 /* ==================== 常量与数据表 ==================== */
 
@@ -19,6 +22,15 @@ const WEI = ["初爻", "二爻", "三爻", "四爻", "五爻", "六爻"];
 const YANG_ZHI = new Set(["子", "寅", "辰", "午", "申", "戌"]);
 /** 先天数:乾1兑2离3震4巽5坎6艮7坤8(梅花易数·周易卦数)。余数 1~8 反推卦,余 0 取 8 = 坤 */
 const NUM_TO_GUA: Record<number, string> = { 1: "乾", 2: "兑", 3: "离", 4: "震", 5: "巽", 6: "坎", 7: "艮", 8: "坤" };
+
+/** 常用汉字笔画表(字占用)。未收录的字按 Unicode 码点 mod 8 兜底,与梅花字占"以笔画起卦"的简化近似 */
+const STROKE_POS: Map<string, number> = new Map([
+  ["一", 1], ["二", 2], ["三", 3], ["四", 5], ["五", 4], ["六", 4], ["七", 2], ["八", 2], ["九", 2], ["十", 2],
+  ["人", 2], ["口", 3], ["日", 4], ["月", 4], ["山", 3], ["水", 4], ["火", 4], ["木", 4], ["金", 8], ["土", 3],
+  ["天", 4], ["地", 6], ["大", 3], ["小", 3], ["上", 3], ["下", 3], ["中", 4], ["心", 4], ["王", 4], ["玉", 5],
+  ["生", 5], ["死", 6], ["好", 6], ["坏", 7], ["男", 7], ["女", 3], ["财", 7], ["官", 8], ["我", 7], ["你", 7],
+  ["他", 5], ["她", 6], ["来", 7], ["去", 5], ["是", 9], ["非", 8], ["有", 6], ["无", 4], ["成", 6], ["败", 8],
+]);
 
 /**
  * 先天八卦爻画(自下而上,1=阳 0=阴)。
@@ -311,19 +323,78 @@ function guzhiStr(g: ReturnType<typeof fullGanZhi>): string {
 /* ==================== 工具 1:起卦 ==================== */
 
 async function qigua(args: {
-  method?: string; datetime?: string; 卦名?: string; 动爻?: number[];
+  method?: string; datetime?: string; 卦名?: string; 动爻?: number[]; 数?: number[]; 字?: string;
 }): Promise<string> {
   const method = args.method ?? "time";
   const t = parseDT(args.datetime);
   const gzFull = fullGanZhi(t);
-  const out: string[] = [`【起卦·${method === "time" ? "梅花易数时间起卦" : method === "coins" ? "三枚铜钱六掷" : "手动指定卦名"}】`, ""];
+  const mName = method === "time" ? "梅花易数时间起卦" : method === "coins" ? "三枚铜钱六掷" :
+    method === "shu" ? "报数起卦" : method === "zi" ? "字占起卦" : "手动指定卦名";
+  const out: string[] = [`【起卦·${mName}】`, ""];
   out.push(`起卦时间: ${fmtDT(t)}   ${guzhiStr(gzFull)}`, "");
 
   let gua: Gua;
   let dongs: number[] = [];
   let throwLines: string[] = [];
 
-  if (method === "time") {
+  if (method === "shu") {
+    // 报数起卦(梅花易数·物数占):取一至三个数;上卦=第一数÷8余(0取8),
+    // 下卦=第二数÷8余(缺省取 第一数+时辰 或 第三数),动爻=(两数之和或第三数)÷6(0取6)。
+    const nums = (args.数 ?? []).map((n) => Math.round(Math.abs(n))).filter((n) => n > 0);
+    if (!nums.length) throw new Error("shu 方式需提供 数(报出的数字,1~3 个)");
+    const hz = DI.indexOf(gzFull.hgz.zhi) + 1;
+    const up = NUM_TO_GUA[nums[0] % 8 === 0 ? 8 : nums[0] % 8];
+    const second = nums[1] ?? nums[0] + hz;
+    const dn = NUM_TO_GUA[second % 8 === 0 ? 8 : second % 8];
+    const total = nums[2] ?? nums[0] + second;
+    const dong = total % 6 === 0 ? 6 : total % 6;
+    gua = guaOfTrigrams(up, dn)!;
+    dongs = [dong];
+    out.push(
+      `所报数: ${nums.join("、")}${nums.length < 3 ? `(补第${nums.length + 1}数 = 第1数+时辰${gzFull.hgz.zhi}=${hz} → ${second};补第3数 = ${total})` : ""}`,
+      `上卦 = ${nums[0]}÷8 余${nums[0] % 8 || "0(取8)"} = ${up}   下卦 = ${second}÷8 余${second % 8 || "0(取8)"} = ${dn}`,
+      `动爻 = ${total}÷6 余${total % 6 || "0(取6)"} = 第${dong}爻`,
+      "",
+    );
+  } else if (method === "zi") {
+    // 字占(梅花易数·字占/声音占):以字笔画总数(或字数)起卦。
+    // 一字:以该字笔画数为上卦,上卦+时辰为下卦,总数÷6取动爻;
+    // 多字:平分字数,上卦=前半总笔画÷8余,下卦=后半总笔画÷8余,动爻=(前后笔画和)÷6余。
+    if (!args.字) throw new Error("zi 方式需提供 字(所报之字)");
+    const chars = [...args.字.trim()];
+    const hz = DI.indexOf(gzFull.hgz.zhi) + 1;
+    const strokes = (ch: string) => {
+      const p = STROKE_POS.get(ch);
+      if (p !== undefined) return p;
+      if (ch >= "一" && ch <= "十") return "一二三四五六七八九十".indexOf(ch) + 1;
+      return ch.codePointAt(0)! % 8 || 8;
+    };
+    if (chars.length === 1) {
+      const n = strokes(chars[0]);
+      const up = NUM_TO_GUA[n % 8 === 0 ? 8 : n % 8];
+      const dn = NUM_TO_GUA[(n + hz) % 8 === 0 ? 8 : (n + hz) % 8];
+      const dong = (n + hz) % 6 === 0 ? 6 : (n + hz) % 6;
+      gua = guaOfTrigrams(up, dn)!;
+      dongs = [dong];
+      out.push(`单字「${args.字}」笔画≈${n}(据笔画表/余8),上卦=${up},下卦=${n}+时${gzFull.hgz.zhi}=${n + hz}→${dn},动爻=${dong}`, "");
+    } else {
+      const half = Math.ceil(chars.length / 2);
+      const head = chars.slice(0, half), tail = chars.slice(half);
+      const hs = head.reduce((a, c) => a + strokes(c), 0);
+      const ts = tail.reduce((a, c) => a + strokes(c), 0);
+      const up = NUM_TO_GUA[hs % 8 === 0 ? 8 : hs % 8];
+      const dn = NUM_TO_GUA[ts % 8 === 0 ? 8 : ts % 8];
+      const dong = (hs + ts) % 6 === 0 ? 6 : (hs + ts) % 6;
+      gua = guaOfTrigrams(up, dn)!;
+      dongs = [dong];
+      out.push(
+        `「${args.字}」${chars.length}字,前半「${head.join("")}」笔画${hs},后半「${tail.join("")}」笔画${ts}`,
+        `上卦 = ${hs}÷8 余${hs % 8 || "0(取8)"} = ${up}   下卦 = ${ts}÷8 余${ts % 8 || "0(取8)"} = ${dn}`,
+        `动爻 = ${hs + ts}÷6 余${(hs + ts) % 6 || "0(取6)"} = 第${dong}爻`,
+        "",
+      );
+    }
+  } else if (method === "time") {
     // 年支序号(子1..亥12),按当年立春后之年支;月数取节气月序号(寅月=1..丑月=12,近农历月);
     // 日数取公历日;时辰序号(子1..亥12)。上卦=(年支+月数+日数)÷8 余(0取8),
     // 下卦=(再+时辰)÷8,动爻=(总数)÷6(0取6)。先天数:乾1兑2离3震4巽5坎6艮7坤8。
@@ -540,12 +611,14 @@ async function cha(args: { 卦名: string; 动爻?: number[] }): Promise<string>
 /* ==================== 工具定义与插件导出 ==================== */
 
 const qiguaTool = tool({
-  description: "起卦:支持梅花易数时间起卦、三枚铜钱六掷起卦、手动指定卦名。输出本卦/变卦/卦辞/世应/起卦干支。",
+  description: "起卦:支持梅花易数时间起卦、三枚铜钱六掷、报数起卦、字占起卦、手动指定卦名。输出本卦/变卦/卦辞/世应/起卦干支。",
   args: {
-    method: tool.schema.enum(["time", "coins", "manual"]).describe("time=梅花易数时间起卦,coins=模拟三枚铜钱六掷,manual=手动指定卦名").default("time"),
+    method: tool.schema.enum(["time", "coins", "shu", "zi", "manual"]).describe("time=梅花易数时间起卦,coins=三枚铜钱六掷,shu=报数起卦(用 数),zi=字占起卦(用 字),manual=手动指定卦名").default("time"),
     datetime: tool.schema.string().optional().describe("ISO 时间字符串(默认现在)"),
     卦名: tool.schema.string().optional().describe("manual 方式必填,64卦卦名如:乾"),
     动爻: tool.schema.array(tool.schema.number()).optional().describe("动爻爻位(1-6,自下而上)"),
+    数: tool.schema.array(tool.schema.number()).optional().describe("shu 方式报出的数字(1-3个,如 [7,3,15])"),
+    字: tool.schema.string().optional().describe("zi 方式所报之字(笔画起卦,支持单字/多字)"),
   },
   execute: qigua,
 });
@@ -581,7 +654,7 @@ const chaTool = tool({
   execute: cha,
 });
 
-const zhanbuTools = { qigua: qiguaTool, paipan: paipanTool, duangua: duanguaTool, cha: chaTool };
+const zhanbuTools = { qigua: qiguaTool, paipan: paipanTool, duangua: duanguaTool, cha: chaTool, meihua: meihuaTool, bazi: baziTool, liuren: liurenTool };
 
 const plugin: Plugin = async () => ({ tool: zhanbuTools });
 export default plugin;

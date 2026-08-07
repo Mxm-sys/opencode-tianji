@@ -23,8 +23,8 @@ beforeAll(async () => {
   tools = hooks.tool;
 });
 
-test("插件默认导出返回 {tool} 且含 4 个工具", async () => {
-  expect(Object.keys(tools)).toEqual(["qigua", "paipan", "duangua", "cha"]);
+test("1. 插件默认导出返回 {tool} 且含 7 个工具", async () => {
+  expect(Object.keys(tools)).toEqual(["qigua", "paipan", "duangua", "cha", "meihua", "bazi", "liuren"]);
 });
 
 test("1. qigua manual 乾 无动爻 → 卦名/卦符/世应/卦辞", async () => {
@@ -105,4 +105,34 @@ test("9. qigua coins → 不抛错且含动爻信息", async () => {
   expect(r).toContain("动爻");
   expect(r).toMatch(/老阳|老阴|少阳|少阴/);
   expect(r).toContain("本卦");
+});
+
+test("10. 插件默认导出含 7 个工具", async () => {
+  expect(Object.keys(tools)).toEqual(["qigua", "paipan", "duangua", "cha", "meihua", "bazi", "liuren"]);
+});
+
+test("11. qigua shu 报数 [7,3,15] → 确定卦", async () => {
+  // 上卦=7%8=艮,下卦=3%8=离(先天数3=离),动爻=15%6=3 → 山火贲,三爻动
+  const r = await tools.qigua.execute({ method: "shu", 数: [7, 3, 15] }, ctx);
+  expect(r).toContain("艮");
+  expect(r).toContain("离");
+  expect(r).toContain("贲"); // 艮上离下 = 山火贲
+  expect(r).toContain("三爻");
+});
+
+test("12. qigua shu 缺数 → 抛错提示", async () => {
+  await expect(tools.qigua.execute({ method: "shu" }, ctx)).rejects.toThrow("数");
+});
+
+test("13. qigua zi 字「中」→ 不抛错含本卦", async () => {
+  const r = await tools.qigua.execute({ method: "zi", 字: "中" }, ctx);
+  expect(r).toContain("本卦");
+  expect(r).toContain("中");
+});
+
+test("14. qigua zi 多字「好运」→ 前半后半笔画", async () => {
+  const r = await tools.qigua.execute({ method: "zi", 字: "好运" }, ctx);
+  expect(r).toContain("好");
+  expect(r).toContain("运");
+  expect(r).toContain("笔画");
 });
