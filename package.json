@@ -1,12 +1,18 @@
 {
   "name": "opencode-tianji",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "天机占卜 opencode 插件+MCP:六爻起卦/排盘/断卦/查卦 + 梅花体用断卦 + 八字四柱 + 小六壬 + 农历黄历;历法 astronomy-engine 精确节气,数据层(书层books+统一schema数据)深度绑定,375 则占验卦例 + 六爻解卦评测基准",
   "type": "module",
   "main": "./plugins/zhanbu.ts",
   "exports": {
-    ".": "./plugins/zhanbu.ts",
-    "./engine": "./lib/engine.ts"
+    ".": {
+      "types": "./types/index.d.ts",
+      "default": "./plugins/zhanbu.ts"
+    },
+    "./engine": {
+      "types": "./types/engine.d.ts",
+      "default": "./lib/engine.ts"
+    }
   },
   "files": [
     "plugins",
@@ -17,7 +23,8 @@
     "README.md",
     "mcp",
     "benchmark",
-    "scripts"
+    "scripts",
+    "types"
   ],
   "scripts": {
     "test": "bun test test/"
@@ -45,5 +52,6 @@
     "astronomy-engine": "^2.1.19",
     "lunar-javascript": "^1.7.7"
   },
-  "devDependencies": {}
+  "devDependencies": {},
+  "types": "./types/index.d.ts"
 }

@@ -73,3 +73,15 @@ test("guaili: 卦名/变卦可用全称解析或为占位", () => {
     }
   }
 });
+
+test("guaili: 干支未详已收敛,且非未详干支含月或日", () => {
+  const g = loadGuaili();
+  const b6 = g.filter((e) => e.书号 === 6);
+  const unclear = b6.filter((e) => e.干支.includes("未详"));
+  // 0.5.1 补全后仅剩原文确无干支记录的 2 条
+  assert.ok(unclear.length <= 2, `书6 干支未详应≤2,实际 ${unclear.length}`);
+  for (const e of b6) {
+    if (e.干支.includes("未详") || e.干支.includes("题明")) continue;
+    assert.ok(/月|日/.test(e.干支), `卦例「${e.占事}」干支不含月/日: ${e.干支}`);
+  }
+});

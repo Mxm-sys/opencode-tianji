@@ -81,6 +81,8 @@ bun run node_modules/opencode-tianji/mcp/index.ts
 import { buildPan, buildPanByGanzhi } from "opencode-tianji/engine";
 ```
 
+完整 TypeScript 类型声明随包发布(`types/`),`engine` 与主入口均有 `types` 条件映射。
+
 ## 工具说明
 
 | 工具 | 说明 | 关键参数 |
