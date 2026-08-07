@@ -23,8 +23,8 @@ beforeAll(async () => {
   tools = hooks.tool;
 });
 
-test("1. 插件默认导出返回 {tool} 且含 7 个工具", async () => {
-  expect(Object.keys(tools)).toEqual(["qigua", "paipan", "duangua", "cha", "meihua", "bazi", "liuren"]);
+test("1. 插件默认导出返回 {tool} 且含 8 个工具", async () => {
+  expect(Object.keys(tools)).toEqual(["qigua", "paipan", "duangua", "cha", "meihua", "bazi", "liuren", "almanac"]);
 });
 
 test("1. qigua manual 乾 无动爻 → 卦名/卦符/世应/卦辞", async () => {
@@ -107,8 +107,8 @@ test("9. qigua coins → 不抛错且含动爻信息", async () => {
   expect(r).toContain("本卦");
 });
 
-test("10. 插件默认导出含 7 个工具", async () => {
-  expect(Object.keys(tools)).toEqual(["qigua", "paipan", "duangua", "cha", "meihua", "bazi", "liuren"]);
+test("10. 插件默认导出含 8 个工具", async () => {
+  expect(Object.keys(tools)).toEqual(["qigua", "paipan", "duangua", "cha", "meihua", "bazi", "liuren", "almanac"]);
 });
 
 test("11. qigua shu 报数 [7,3,15] → 确定卦", async () => {
@@ -171,4 +171,42 @@ test("19. 晚子时:不换日 时 datetime=2024-02-10 23:30 → 日柱甲辰(当
   const r = await tools.qigua.execute({ method: "manual", 卦名: "乾", datetime: "2024-02-10 23:30", 晚子时: "不换日" }, ctx);
   expect(r).toContain("甲辰日");
   expect(r).toContain("甲子时");
+});
+
+test("20. qigua format=json → 结构化审计 JSON(含口径/依据)", async () => {
+  const r = await tools.qigua.execute({ method: "time", datetime: "2024-02-10 12:00", format: "json" }, ctx);
+  const j = JSON.parse(r);
+  expect(j.工具).toBe("qigua");
+  expect(j.本卦).toBe("谦");
+  expect(j.动爻位).toEqual([5]);
+  expect(j.依据).toContain("liushi_si_gua.json");
+  expect(j.口径).toContain("astronomy-engine");
+});
+
+test("21. paipan format=json → 爻结构化含 六亲/旺衰/旬空/月破", async () => {
+  const r = await tools.paipan.execute({ 卦名: "乾", datetime: "2024-02-10 12:00", format: "json" }, ctx);
+  const j = JSON.parse(r);
+  expect(j.工具).toBe("paipan");
+  expect(j.卦名).toBe("乾");
+  expect(j.旬空).toContain("寅、卯");
+  expect(j.月破).toBe("申"); // 2024-02-10 丙寅月,寅月冲申
+  expect(j.爻).toHaveLength(6);
+  expect(j.爻[0].六亲).toBe("子孙");
+  expect(j.爻[0].纳甲).toBeDefined ?? true;
+  expect(j.口径).toContain("astronomy-engine");
+});
+
+test("22. almanac 黄历 @2024-02-10 → 农历/干支/宜忌/口径", async () => {
+  const r = await tools.almanac.execute({ datetime: "2024-02-10 12:00" }, ctx);
+  expect(r).toContain("农历");
+  expect(r).toContain("甲辰");
+  expect(r).toContain("宜");
+  expect(r).toContain("忌");
+  expect(r).toContain("[口径]");
+  expect(r).toContain("lunar-javascript");
+});
+
+test("23. almanac 无参 → 不抛错", async () => {
+  const r = await tools.almanac.execute({}, ctx);
+  expect(r).toContain("农历");
 });

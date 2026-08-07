@@ -250,6 +250,55 @@ export function buildPan(name: string, dongsArg: number[], dt?: string, opts?: G
   const dongs = normDongs(dongsArg);
   const t = parseDT(dt);
   const gzFull = fullGanZhi(t, opts);
+  return panFromGanzhi(gua, dongs, t, gzFull);
+}
+
+/** 全称卦名 → 单字卦名:如 "兑为泽"→"兑"、"天水讼"→"讼"、"泽风大过"→"大过"。非全称原样返回 */
+const XIANG = { 天: "乾", 地: "坤", 雷: "震", 风: "巽", 水: "坎", 火: "离", 山: "艮", 泽: "兑" } as const;
+const GUA8 = new Set(["乾", "兑", "离", "震", "巽", "坎", "艮", "坤"]);
+export function shortGuaName(name: string): string {
+  if (guaOf(name)) return name;
+  const n = name.trim();
+  if (n[1] === "为") {
+    const a = GUA8.has(n[0]) ? n[0] : (XIANG as Record<string, string>)[n[0]];
+    const b = GUA8.has(n[2]) ? n[2] : (XIANG as Record<string, string>)[n[2]];
+    const cand = guaList().find((g) => g.上下卦 === `${a}上${b}下`);
+    return cand?.卦名 ?? name;
+  }
+  const a = (XIANG as Record<string, string>)[n[0]], b = (XIANG as Record<string, string>)[n[1]];
+  const cand = a && b ? guaList().find((g) => g.上下卦 === `${a}上${b}下`) : undefined;
+  return cand?.卦名 ?? name;
+}
+
+/**
+ * 按「月支 + 日干支」直接排盘(卦例为干支记时,无公历)。
+ * 月支驱动月破/旺相休囚,日干支驱动旬空/六神/飞伏。年/时柱置占位。
+ * @param name 六十四卦卦名(全称如"兑为泽"或单字"兑"均可)
+ * @param dongs 动爻位(1-6)
+ * @param monthZhi 月建地支,如 "亥"
+ * @param dayGanZhi 日干支,如 "己丑";缺日干时仅用日支
+ */
+export function buildPanByGanzhi(name: string, dongsArg: number[], monthZhi: string, dayGanZhi: string): Pan {
+  const gua = guaOf(shortGuaName(name));
+  if (!gua) throw new Error(`未找到卦:「${name}」`);
+  const dongs = normDongs(dongsArg);
+  const mz = DI.includes(monthZhi) ? monthZhi : "子";
+  const dayMatch = /^([甲乙丙丁戊己庚辛壬癸])?([子丑寅卯辰巳午未申酉戌亥])$/.exec(dayGanZhi.trim());
+  const dz = dayMatch ? dayMatch[2] : dayGanZhi.trim();
+  const dgz = { gan: dayMatch?.[1] ?? "甲", zhi: dz };
+  const t = { y: 0, m: 0, d: 0, h: 12 };
+  const gzFull: ReturnType<typeof fullGanZhi> = {
+    ygz: { gan: "甲", zhi: "子" }, mgz: { gan: "甲", zhi: mz }, dgz, hgz: { gan: "甲", zhi: "午" },
+  };
+  return panFromGanzhi(gua, dongs, t, gzFull);
+}
+
+/** 共享排盘实现:由已确定的卦/动爻/干支构建 Pan */
+function panFromGanzhi(
+  gua: Gua, dongs: number[],
+  t: { y: number; m: number; d: number; h: number },
+  gzFull: ReturnType<typeof fullGanZhi>,
+): Pan {
   const order = liuShenOrder();
   const s0 = order.indexOf(liuShenStart(gzFull.dgz.gan));
   const xk = xunKong(gzFull.dgz);

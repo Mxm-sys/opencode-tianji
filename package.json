@@ -1,11 +1,12 @@
 {
   "name": "opencode-tianji",
-  "version": "0.4.0",
-  "description": "天机占卜 opencode 插件:六爻起卦/排盘/断卦/查卦 + 梅花易数体用断卦 + 八字四柱 + 小六壬;历法采用 astronomy-engine 天文算法(精确节气/晚子时/真太阳时可选),数据层(书层books+统一schema数据)深度绑定",
+  "version": "0.5.0",
+  "description": "天机占卜 opencode 插件+MCP:六爻起卦/排盘/断卦/查卦 + 梅花体用断卦 + 八字四柱 + 小六壬 + 农历黄历;历法 astronomy-engine 精确节气,数据层(书层books+统一schema数据)深度绑定,375 则占验卦例 + 六爻解卦评测基准",
   "type": "module",
   "main": "./plugins/zhanbu.ts",
   "exports": {
-    ".": "./plugins/zhanbu.ts"
+    ".": "./plugins/zhanbu.ts",
+    "./engine": "./lib/engine.ts"
   },
   "files": [
     "plugins",
@@ -13,7 +14,10 @@
     "data",
     "books",
     "templates",
-    "README.md"
+    "README.md",
+    "mcp",
+    "benchmark",
+    "scripts"
   ],
   "scripts": {
     "test": "bun test test/"
@@ -28,11 +32,18 @@
     "liuyao",
     "meihua",
     "bazi",
-    "xiaoliuren"
+    "xiaoliuren",
+    "almanac",
+    "mcp",
+    "yijing",
+    "chinese-metaphysics"
   ],
   "license": "MIT",
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@opencode-ai/plugin": "^1.18.15",
-    "astronomy-engine": "^2.1.19"
-  }
+    "astronomy-engine": "^2.1.19",
+    "lunar-javascript": "^1.7.7"
+  },
+  "devDependencies": {}
 }

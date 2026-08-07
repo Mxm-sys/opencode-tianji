@@ -13,6 +13,7 @@ import * as hex from "../lib/hex";
 import * as meihua from "./meihua";
 import * as bazi from "./bazi";
 import * as liuren from "./liuren";
+import * as almanac from "./almanac";
 
 const DI = hex.DI;
 const TG = hex.TG;
@@ -116,7 +117,7 @@ function toSeed(s: string | number): number {
 
 async function qigua(args: {
   method?: string; datetime?: string; 卦名?: string; 动爻?: number[]; 数?: number[]; 字?: string;
-  晚子时?: "换日" | "不换日"; 经度?: number; seed?: string | number;
+  晚子时?: "换日" | "不换日"; 经度?: number; seed?: string | number; format?: string;
 }): Promise<string> {
   const method = args.method ?? "time";
   const opts = { 晚子时: args.晚子时, 经度: args.经度 };
@@ -248,12 +249,21 @@ async function qigua(args: {
   if (bianGua) out.push(`变卦卦辞: ${bianGua.卦辞}  (据 liushi_si_gua.json)`);
   out.push("", "数据出处: 起卦算法据梅花易数·时间起卦/增删卜易·铜钱卦;卦名/卦辞/世应据 liushi_si_gua.json", 口径披露());
   void throwLines;
+  if (args.format === "json") {
+    return JSON.stringify({
+      工具: "qigua", method, 起卦时间: `${fmtDT(t)} ${guzhiStr(gzFull)}`,
+      本卦: gua.卦名, 变卦: dongs.length ? bian : null, 动爻位: dongs,
+      卦辞: gua.卦辞, 世爻: WEI[gua.世爻 - 1], 应爻: WEI[gua.应爻 - 1],
+      依据: ["liushi_si_gua.json", "梅花易数·时间起卦", "增删卜易·铜钱卦"],
+      口径: 口径披露(),
+    }, null, 2);
+  }
   return out.join("\n");
 }
 
 /* ==================== 工具 2:排盘 ==================== */
 
-async function paipan(args: { 卦名: string; 动爻?: number[]; datetime?: string; 占事?: string; 晚子时?: "换日" | "不换日"; 经度?: number }): Promise<string> {
+async function paipan(args: { 卦名: string; 动爻?: number[]; datetime?: string; 占事?: string; 晚子时?: "换日" | "不换日"; 经度?: number; format?: string }): Promise<string> {
   const pan = hex.buildPan(args.卦名, args.动爻, args.datetime, { 晚子时: args.晚子时, 经度: args.经度 });
   const { gua, dongs, gzFull, lines, body, xk, poZhi, shiLine, yingLine } = pan;
   const out: string[] = [
@@ -295,6 +305,18 @@ async function paipan(args: { 卦名: string; 动爻?: number[]; datetime?: stri
     }
   }
   out.push("", "数据出处: 纳甲/六亲/世应/八宫据 liushi_si_gua.json;六神/卦身据 nayin.json;旬空/月破/旺相休囚/六冲六合三合据 ganzhi.json", 口径披露());
+  if (args.format === "json") {
+    return JSON.stringify({
+      工具: "paipan", 卦名: gua.卦名, 变卦: dongs.length ? hex.bianGuaName(gua, dongs) : null,
+      起卦: `${fmtDT(pan.t)} ${guzhiStr(gzFull)}`, 动爻位: dongs,
+      旬空: `${xk.xun}旬 空[${xk.kong.join("、")}]`, 月破: poZhi,
+      六冲: pan.chong, 六合: pan.he, 三合: pan.sanhe,
+      世爻: shiLine.gzName, 应爻: yingLine.gzName, 世应关系: pan.rel,
+      爻: lines.map((l) => ({ 爻位: l.wei, 六神: l.shen, 六亲: l.qin, 干支: l.gzName, 五行: l.wx, 旺衰: l.state, 旬空: l.isKong, 月破: l.isPo, 持世: l.isShi, 持应: l.isYing, 动: l.isDong })),
+      依据: ["liushi_si_gua.json", "nayin.json", "ganzhi.json"],
+      口径: 口径披露(),
+    }, null, 2);
+  }
   return out.join("\n");
 }
 
@@ -341,6 +363,15 @@ async function duangua(args: {
     ...verdicts.map((v) => `  ${v}`),
     `── 注意事项 ──`,
     `  ${yuNote(args.占事)}`,
+  );
+  out.push(
+    "",
+    `── 解卦任务书(给解读方,用神/旺衰/空破已算好,勿改) ──`,
+    `占事: ${args.占事}   本卦: ${gua.卦名}(${gua.上下卦})  动爻位: ${pan.dongs.length ? pan.dongs.join("、") : "无(静卦)"}`,
+    `用神: ${ys.use.join("、")} (${ys.note.split(",")[0]})`,
+    `关键爻: ${pan.lines.filter((l) => l.isShi || l.isYing || l.isDong).map((l) => `${l.wei}${l.qin}${l.gzName}${l.wx}(${l.state}${l.isKong ? "空" : ""}${l.isPo ? "破" : ""})`).join("、")}`,
+    `旬空: ${xk.kong.join("、")}   月破: ${pan.poZhi}   世应: ${pan.rel}`,
+    `任务: 以上规则要素已确定,解读方仅据此组织白话表达(术语附翻译+结尾纯白话【总结】),不得自行改动用神或重排卦象。`,
   );
   out.push("", "以上为规则性辅助,最终解读由解读方结合卦辞爻辞综合判断。", 口径披露());
   return out.join("\n");
@@ -429,6 +460,7 @@ const qiguaTool = tool({
     晚子时: tool.schema.enum(["换日", "不换日"]).optional().describe("晚子时(23-24点)日柱处理:换日=归次日(默认),不换日=按当日"),
     经度: tool.schema.number().optional().describe("出生地/起卦地经度(东经正,如 87=乌鲁木齐)。默认 120(东八区);传入非120时用真太阳时定时辰"),
     seed: tool.schema.string().or(tool.schema.number()).optional().describe("coins 方式的随机种子,同 seed 可复现同一卦;不传则自动生成(输出 seed=0x…)"),
+    format: tool.schema.enum(["text", "json"]).optional().describe("输出格式:text=自然语言(默认);json=结构化审计 JSON(含口径/依据)"),
   },
   execute: qigua,
 });
@@ -442,6 +474,7 @@ const paipanTool = tool({
     占事: tool.schema.string().optional().describe("占问之事,如:求财"),
     晚子时: tool.schema.enum(["换日", "不换日"]).optional().describe("晚子时(23-24点)日柱处理:换日=归次日(默认),不换日=按当日"),
     经度: tool.schema.number().optional().describe("起卦地经度(东经正)。默认 120(东八区);传入非120时用真太阳时定时辰"),
+    format: tool.schema.enum(["text", "json"]).optional().describe("输出格式:text=自然语言(默认);json=结构化审计 JSON(含口径/依据)"),
   },
   execute: paipan,
 });
@@ -473,7 +506,7 @@ export const 元信息 = { 名: "六爻纳甲", 书号: [1, 2, 3, 4, 5, 6], 法�
 export const 工具 = { qigua: qiguaTool, paipan: paipanTool, duangua: duanguaTool, cha: chaTool };
 export const 数据 = ["liushi_si_gua.json", "爻辞.json", "nayin.json", "ganzhi.json", "bagua.json", "yilin.json", "books/index.json"];
 
-const zhanbuTools = { ...工具, ...meihua.工具, ...bazi.工具, ...liuren.工具 };
+const zhanbuTools = { ...工具, ...meihua.工具, ...bazi.工具, ...liuren.工具, ...almanac.工具 };
 
 const plugin: Plugin = async () => ({ tool: zhanbuTools });
 export default plugin;
