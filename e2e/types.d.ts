@@ -24,6 +24,7 @@ declare module "node:fs/promises" {
     path: string,
     opts?: { recursive?: boolean },
   ): Promise<string | undefined>;
+  export function readFile(path: string, encoding: string): Promise<string>;
   export function readdir(path: string): Promise<string[]>;
   export function rm(
     path: string,
@@ -32,7 +33,7 @@ declare module "node:fs/promises" {
   export function writeFile(
     path: string,
     data: string,
-    opts?: { mode?: number },
+    opts?: { mode?: number; encoding?: string },
   ): Promise<void>;
 }
 
@@ -59,11 +60,45 @@ declare module "node:child_process" {
     stderr: Buffer | string;
     error?: Error;
   };
+
+  export function spawn(
+    command: string,
+    args?: string[],
+    options?: {
+      env?: Record<string, string | undefined>;
+      cwd?: string;
+      detached?: boolean;
+      stdio?: unknown[];
+    },
+  ): ChildProcess;
+}
+
+/**
+ * 最小子进程流声明(仅类型检查;真实运行时由 Bun 提供)。
+ * 只覆盖本套件用到的 data 事件与 setEncoding。
+ */
+interface NodeStream {
+  setEncoding(encoding: string): this;
+  on(event: "data", listener: (chunk: string) => void): this;
+  on(event: "error", listener: (err: Error) => void): this;
+}
+
+interface ChildProcess {
+  readonly pid: number;
+  readonly exitCode: number | null;
+  readonly signalCode: string | null;
+  stdout: NodeStream;
+  stderr: NodeStream;
+  stdin: NodeStream;
+  on(event: string, listener: (...args: any[]) => void): this;
+  once(event: "exit", cb: (code: number | null, signal: string | null) => void): this;
+  once(event: "error", cb: (err: Error) => void): this;
+  kill(signal?: string): boolean;
 }
 
 /**
  * 最小 Buffer 环境声明(仅类型检查;真实运行时由 Bun 提供)。
- * 补齐 spawnSync 返回类型中 Buffer 分支所需成员。
+ * 补齐 spawnSync/spawn 返回类型中 Buffer 分支所需成员。
  */
 interface Buffer {
   toString(encoding?: string): string;
@@ -77,6 +112,7 @@ interface Matchers<T> {
   toBeUndefined(): void;
   toEqual(v: unknown): void;
   toContain(v: unknown): void;
+  toHaveLength(n: number): void;
   toThrow(re: RegExp | string): void;
 }
 
@@ -92,9 +128,17 @@ declare module "bun:test" {
 declare const process: {
   pid: number;
   cwd(): string;
+  argv: string[];
   env: Record<string, string | undefined>;
+  exitCode: number;
+  exit(code?: number): never;
+  kill(pid: number, signal?: string): boolean;
 };
 
 interface ImportMeta {
   dir: string;
+  main?: boolean;
 }
+
+declare function setTimeout(fn: () => void, ms?: number): unknown;
+declare function clearTimeout(timer: unknown): void;
