@@ -163,6 +163,34 @@ bun install
 bun run test    # 全量:zhanbu/meihua/bazi/liuren 工具 + lib(数据/schema/干支)
 ```
 
+### E2E 真实 opencode 实例测试
+
+**用途**:验证插件被真实 opencode 实例加载、13 个工具真实注册、真实 LLM 对话中模型能调用工具、`/zhanbu` 命令可用——补充单元测试未覆盖的"真实加载"环节。
+
+**前置**:
+
+- `opencode` ≥ 1.18 在 PATH 中(或设置 `TIANJI_E2E_OPENCODE_BIN` 指定路径);
+- deepseek 配置自动读取全局 `~/.config/opencode/opencode.json`,或用 `TIANJI_E2E_PROVIDER_JSON` 提供。
+
+**命令**:
+
+```sh
+bun run test:e2e               # 完整:含真实 LLM 对话(消耗少量 deepseek API 费用)
+bun run test:e2e:skip-llm      # 跳过真实对话,仅确定性验证(加载/工具注册/命令)
+```
+
+**环境变量**:
+
+| 变量 | 说明 |
+| --- | --- |
+| `TIANJI_E2E_OPENCODE_BIN` | opencode 可执行文件路径(默认自动探测 PATH) |
+| `TIANJI_E2E_PROVIDER_JSON` | 覆盖 provider 配置 JSON(CI/他机使用,不落盘 apiKey) |
+| `TIANJI_E2E_SKIP_LLM` | 设 `1` 跳过真实 LLM 对话 |
+| `TIANJI_E2E_MODEL` | 指定对话模型(默认 deepseek 配置中的模型) |
+| `TIANJI_E2E_NO_COMMAND` | 设 `1` 强制命令验证失败(测试失败分支) |
+
+**注意**:真实对话消耗少量 deepseek API 费用;测试全程 XDG 隔离(临时 HOME/配置目录),不干扰日常配置;失败时可加 `--keep` 保留临时目录排查。
+
 ## 发布
 
 ```sh

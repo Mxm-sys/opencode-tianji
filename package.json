@@ -28,7 +28,9 @@
     "types"
   ],
   "scripts": {
-    "test": "bun test test/"
+    "test": "bun test test/",
+    "test:e2e": "bun run e2e/run.ts",
+    "test:e2e:skip-llm": "bun run e2e/run.ts --skip-llm"
   },
   "keywords": [
     "opencode",
