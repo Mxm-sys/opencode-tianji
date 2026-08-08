@@ -258,9 +258,11 @@ async function main(): Promise<void> {
       );
     }
 
-    process.exit(result.ok ? 0 : 1);
+    // 不用 process.exit:同步退出会跳过 finally,导致 scaffold.cleanup() 不执行、临时目录泄漏
+    if (!result.ok) process.exitCode = 1;
   } finally {
     await scaffold.cleanup();
+    console.error("[cleanup] 临时目录已清理");
   }
 }
 
@@ -269,6 +271,7 @@ if (import.meta.main) {
     console.error(
       `e2e/chat 失败:${err instanceof Error ? err.message : String(err)}`,
     );
-    process.exit(1);
+    // 同样用 exitCode 而非 process.exit,确保 main() 的 finally 清理必然执行
+    process.exitCode = 1;
   });
 }
