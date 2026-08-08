@@ -3,7 +3,7 @@
  * 运行: cd /home/mxm/桌面/fun/占卜/opencode-tianji && bun test test/yilin.test.ts
  */
 import { test, expect } from "bun:test";
-import { yilinExecute } from "../plugins/yilin";
+import { yilinExecute } from "../modules/yilin";
 
 const ctx = {
   sessionID: "test", messageID: "m1", agent: "test", directory: process.cwd(),

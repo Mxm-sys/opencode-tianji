@@ -5,7 +5,7 @@
 import { test, expect } from "bun:test";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { liurenTool } from "../plugins/liuren";
+import { liurenTool } from "../modules/liuren";
 
 const ctx = {
   sessionID: "test",

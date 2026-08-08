@@ -3,7 +3,7 @@
  * 运行: cd /home/mxm/桌面/fun/占卜/opencode-tianji && bun test test/liuyao_enhance.test.ts
  */
 import { test, expect, describe, beforeAll } from "bun:test";
-import liuyaoPlugin from "../plugins/liuyao";
+import liuyaoPlugin from "../modules/liuyao";
 
 const ctx = {
   sessionID: "test", messageID: "m1", agent: "test",

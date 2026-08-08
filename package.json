@@ -1,6 +1,6 @@
 {
   "name": "opencode-tianji",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "description": "天机占卜 opencode 插件+MCP:六爻起卦/排盘/断卦/查卦 + 梅花体用断卦 + 八字四柱 + 小六壬 + 农历黄历;历法 astronomy-engine 精确节气,数据层(书层books+统一schema数据)深度绑定,375 则占验卦例 + 六爻解卦评测基准",
   "type": "module",
   "main": "./plugins/zhanbu.ts",
@@ -16,6 +16,7 @@
   },
   "files": [
     "plugins",
+    "modules",
     "lib",
     "data",
     "books",

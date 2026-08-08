@@ -5,7 +5,7 @@
 import { test, expect } from "bun:test";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { baziExecute, shiShen } from "../plugins/bazi";
+import { baziExecute, shiShen } from "../modules/bazi";
 import { getYearGanZhi, getMonthGanZhi, getDayGanZhi, getHourGanZhi } from "../lib/ganzhi";
 
 const run = (datetime?: string, 性别?: string, 晚子时?: "换日" | "不换日") =>

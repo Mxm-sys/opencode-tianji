@@ -11,10 +11,12 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import * as zhanbu from "../plugins/zhanbu";
-import * as almanac from "../plugins/almanac";
+import zhanbuPlugin from "../plugins/zhanbu";
+import { 工具 as almanacTools } from "../modules/almanac";
 
-const server = new McpServer({ name: "opencode-tianji", version: "0.5.3" });
+const zhanbu = { 工具: zhanbuPlugin.工具 };
+
+const server = new McpServer({ name: "opencode-tianji", version: "0.5.4" });
 
 /** 工具函数包装:MCP 参数 → 工具 execute 参数,返回文本结果 */
 type Exec = (args: Record<string, unknown>) => Promise<string>;
@@ -79,7 +81,7 @@ register("liuren", "小六壬:月日时起课(大安/留连/速喜/赤口/小吉
 
 register("almanac", "黄历:农历/干支/节气/宜忌/吉神方位/冲煞/旬空", {
   datetime: { type: "string", optional: true },
-}, async (a) => (await almanac.工具.almanac.execute(a as never, {} as never)) as string);
+}, async (a) => (await almanacTools.almanac.execute(a as never, {} as never)) as string);
 
 register("dayan", "大衍筮法(蓍草四营十八变):49策分二挂一揲四归奇,三变成爻、十八变成卦,seed可复现", {
   seed: { type: "string", optional: true }, 占事: { type: "string", optional: true },

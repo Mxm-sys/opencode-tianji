@@ -4,7 +4,7 @@
  */
 import { test, expect } from "bun:test";
 import * as db from "../lib/db";
-import { jingshiExecute } from "../plugins/jingshi";
+import { jingshiExecute } from "../modules/jingshi";
 
 const ctx = {
   sessionID: "test", messageID: "m1", agent: "test", directory: process.cwd(),

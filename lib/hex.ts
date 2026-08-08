@@ -2,8 +2,8 @@
  * 六爻/梅花共享计算核心:五行生克、天干地支、纳音、六神、六冲六合三合、旬空、
  * 旺相休囚、先天八卦爻画、卦查找、变卦推导、旬空月破、六亲、卦身与排盘核心(buildPan)。
  *
- * 数据一律查 知识库/data(经 ../lib/db),不硬编码;仅供 plugins/zhanbu.ts、
- * plugins/meihua.ts、plugins/bazi.ts 共用,各术专属逻辑留在各自模块。
+ * 数据一律查 知识库/data(经 ../lib/db),不硬编码;仅供 modules/zhanbu.ts、
+ * modules/meihua.ts、modules/bazi.ts 共用,各术专属逻辑留在各自模块。
  */
 import * as db from "./db";
 import * as gz from "./ganzhi";

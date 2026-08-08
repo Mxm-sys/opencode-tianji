@@ -5,7 +5,7 @@
 import { test, expect } from "bun:test";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { huozhulinExecute } from "../plugins/huozhulin";
+import { huozhulinExecute } from "../modules/huozhulin";
 
 const ctx = {
   sessionID: "test",

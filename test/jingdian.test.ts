@@ -3,7 +3,7 @@
  * 运行: cd /home/mxm/桌面/fun/占卜/opencode-tianji && bun test test/jingdian.test.ts
  */
 import { test, expect, beforeAll } from "bun:test";
-import jingdianPlugin from "../plugins/jingdian";
+import jingdianPlugin from "../modules/jingdian";
 
 const ctx = {
   sessionID: "test", messageID: "m1", agent: "test",
