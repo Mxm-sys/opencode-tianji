@@ -1,0 +1,47 @@
+### QA 1: happy path(createScaffold + cleanup)
+命令: bun -e "import {createScaffold} from \"./e2e/scaffold.ts\"; const s = await createScaffold({provider:{}}); console.log(s.dir); await s.cleanup(); console.log(\"cleaned\")"
+--- 输出 ---
+/tmp/tianji-e2e-24326-qv3win4c
+cleaned
+
+### QA 1b: cleanup 后目录不存在(ls 失败)
+--- 输出 ---
+zsh:9: no matches found: /tmp/tianji-e2e-*
+(无匹配:无残留目录)
+
+### QA 2: failure path(非法 provider)
+命令: bun -e "import {createScaffold} from \"./e2e/scaffold.ts\"; try { await createScaffold({provider: 42 as any}); console.log(\"UNEXPECTED SUCCESS\"); } catch (e) { console.log(\"THREW:\", (e as Error).message); }"
+--- 输出 ---
+THREW: createScaffold: provider 必须是对象(Record<string, unknown>),收到类型 number。请用 provider 模块(buildProviderConfig)产出配置后传入。
+
+### QA 2b: 无残留目录
+--- 输出 ---
+0
+0 个 tianji-e2e-* 残留
+
+### QA 3: bun test e2e/scaffold.test.ts(全部通过): bun test e2e/scaffold.test.ts
+--- 输出 ---
+bun test v1.3.14 (0d9b296a)
+
+ 5 pass
+ 0 fail
+ 21 expect() calls
+Ran 5 tests across 1 file. [15.00ms]
+
+### QA 4: pluginAbsPath(process.cwd()) 返回存在文件
+--- 输出 ---
+SyntaxError: Export named 'existsSync' not found in module '/home/mm/桌面/opencode/项目/天机/e2e/scaffold.ts'.
+
+Bun v1.3.14 (Linux x64)
+### QA 4(修正): : pluginAbsPath(process.cwd()) 返回存在文件
+命令: bun -e "import {pluginAbsPath} from \"./e2e/scaffold.ts\"; import {existsSync} from \"node:fs\"; const p = pluginAbsPath(process.cwd()); console.log(p, \"| exists:\", existsSync(p))"
+--- 输出 ---
+/home/mm/桌面/opencode/项目/天机/plugins/zhanbu.ts | exists: true
+
+### 回归:仓库现有测试不受影响(bun run test)
+
+ 107 pass
+ 6 skip
+ 0 fail
+ 1468 expect() calls
+Ran 113 tests across 15 files. [154.00ms]
