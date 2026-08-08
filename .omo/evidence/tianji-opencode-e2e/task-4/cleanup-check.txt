@@ -1,0 +1,12 @@
+## 清理回执
+happy EXIT=0
+happy 后新增 opencode 进程: [] (空=无残留)
+failure EXIT=1
+failure 后新增 opencode 进程: [] (空=无残留)
+残余临时目录(仅并行波次 T5/T6 遗留,非本模块):
+/tmp/tianji-e2e-26973-u8ymhrho
+/tmp/tianji-e2e-28784-gl2kt50p
+/tmp/tianji-e2e-28872-lix4wr2d
+/tmp/tianji-e2e-29135-z21zlzrn
+/tmp/tianji-e2e-30125-8kgmuvhq
+/tmp/tianji-e2e-30913-rpnya4ex

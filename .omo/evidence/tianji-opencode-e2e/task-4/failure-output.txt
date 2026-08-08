@@ -1,0 +1,5 @@
+e2e/tools.ts 失败:项目配置未加载/插件未生效:/tmp/tianji-e2e-31204-j6m14de9 的 /experimental/tool/ids 未包含任何天机工具(serve 日志亦未见插件路径特征),共返回 14 个工具:invalid,question,bash,read,glob,grep,edit,write,task,webfetch,todowrite,websearch,…。请检查 opencode.json 的 plugin 配置。serve 输出:
+Warning: OPENCODE_SERVER_PASSWORD is not set; server is unsecured.
+opencode server listening on http://127.0.0.1:4096
+
+EXIT=1
