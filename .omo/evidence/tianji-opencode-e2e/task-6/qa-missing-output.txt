@@ -1,0 +1,7 @@
+{
+  "ok": false,
+  "output": "",
+  "toolCalls": [],
+  "reason": "command 模板缺失(由 TIANJI_E2E_NO_COMMAND=1 强制)"
+}
+exit=1
