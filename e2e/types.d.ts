@@ -38,6 +38,7 @@ declare module "node:fs/promises" {
 
 declare module "node:os" {
   export function tmpdir(): string;
+  export function homedir(): string;
 }
 
 declare module "node:path" {
@@ -47,9 +48,32 @@ declare module "node:path" {
   export function resolve(...parts: string[]): string;
 }
 
+declare module "node:child_process" {
+  export function spawnSync(
+    command: string,
+    args?: string[],
+    options?: { encoding?: string },
+  ): {
+    status: number | null;
+    stdout: Buffer | string;
+    stderr: Buffer | string;
+    error?: Error;
+  };
+}
+
+/**
+ * 最小 Buffer 环境声明(仅类型检查;真实运行时由 Bun 提供)。
+ * 补齐 spawnSync 返回类型中 Buffer 分支所需成员。
+ */
+interface Buffer {
+  toString(encoding?: string): string;
+  trim(): string;
+}
+
 interface Matchers<T> {
   toBe(v: unknown): void;
   toBeDefined(): void;
+  toBeNull(): void;
   toBeUndefined(): void;
   toEqual(v: unknown): void;
   toContain(v: unknown): void;
@@ -68,6 +92,7 @@ declare module "bun:test" {
 declare const process: {
   pid: number;
   cwd(): string;
+  env: Record<string, string | undefined>;
 };
 
 interface ImportMeta {
