@@ -14,7 +14,7 @@ import { z } from "zod";
 import * as zhanbu from "../plugins/zhanbu";
 import * as almanac from "../plugins/almanac";
 
-const server = new McpServer({ name: "opencode-tianji", version: "0.5.0" });
+const server = new McpServer({ name: "opencode-tianji", version: "0.5.3" });
 
 /** 工具函数包装:MCP 参数 → 工具 execute 参数,返回文本结果 */
 type Exec = (args: Record<string, unknown>) => Promise<string>;
@@ -80,6 +80,29 @@ register("liuren", "小六壬:月日时起课(大安/留连/速喜/赤口/小吉
 register("almanac", "黄历:农历/干支/节气/宜忌/吉神方位/冲煞/旬空", {
   datetime: { type: "string", optional: true },
 }, async (a) => (await almanac.工具.almanac.execute(a as never, {} as never)) as string);
+
+register("dayan", "大衍筮法(蓍草四营十八变):49策分二挂一揲四归奇,三变成爻、十八变成卦,seed可复现", {
+  seed: { type: "string", optional: true }, 占事: { type: "string", optional: true },
+}, async (a) => (await zhanbu.工具.dayan.execute(a as never, {} as never)) as string);
+
+register("yilin", "焦氏易林占:本卦+之卦取4096首变诗断吉凶,之卦可指定/动爻推/随机(seed复现)", {
+  本卦: { type: "string" }, 之卦: { type: "string", optional: true },
+  动爻: { type: "array", optional: true }, 随机: { type: "boolean", optional: true },
+  seed: { type: "string", optional: true },
+}, async (a) => (await zhanbu.工具.yilin.execute(a as never, {} as never)) as string);
+
+register("jingshi", "京氏易传占:八宫/宫五行/世应/纳甲六亲/飞伏神,据占事取用神看显伏", {
+  卦名: { type: "string" }, 占事: { type: "string", optional: true },
+}, async (a) => (await zhanbu.工具.jingshi.execute(a as never, {} as never)) as string);
+
+register("huozhulin", "火珠林钱卜断占:按占事门类匹配《火珠林》口占断辞(原文+白话+来源)", {
+  占事: { type: "string" }, 卦名: { type: "string", optional: true },
+}, async (a) => (await zhanbu.工具.huozhulin.execute(a as never, {} as never)) as string);
+
+register("chazhu", "经传查注:查某卦朱熹《周易本义》卦爻注/十翼(序卦杂卦文言)/彖传大象", {
+  卦名: { type: "string" }, 范围: { type: "string", optional: true },
+  动爻: { type: "array", optional: true },
+}, async (a) => (await zhanbu.工具.chazhu.execute(a as never, {} as never)) as string);
 
 const transport = new StdioServerTransport();
 await server.connect(transport);

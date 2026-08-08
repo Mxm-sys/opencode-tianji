@@ -22,10 +22,17 @@
 ```
 opencode-tianji/
 ├── plugins/          # 插件层:每术一模块,自声明导出
-│   ├── zhanbu.ts     #   聚合器(六爻 qigua/paipan/duangua/cha)
-│   ├── meihua.ts     #   梅花易数(导出 元信息/工具/数据)
+│   ├── zhanbu.ts     #   聚合器(合并全部术别工具,无业务逻辑)
+│   ├── liuyao.ts     #   六爻(qigua/paipan/duangua/cha)
+│   ├── meihua.ts     #   梅花易数
+│   ├── dayan.ts      #   大衍筮法(蓍草四营十八变)
+│   ├── yilin.ts      #   焦氏易林(4096 变诗占)
+│   ├── jingshi.ts    #   京氏易传(八宫/飞伏)
+│   ├── huozhulin.ts  #   火珠林(钱卜杂占)
+│   ├── jingdian.ts   #   经传查注(朱熹注/十翼/彖象)
 │   ├── bazi.ts       #   八字四柱
-│   └── liuren.ts     #   小六壬
+│   ├── liuren.ts     #   小六壬
+│   └── almanac.ts    #   黄历
 ├── lib/              # hex.ts(共享计算核心)db.ts(数据加载)ganzhi.ts(干支)
 ├── books/            # 书层:8 部典籍元数据(篇章/行号/提取状态)+ index.json
 ├── data/             # 数据层:统一 schema(每条目带 来源 溯源)
@@ -33,7 +40,7 @@ opencode-tianji/
 └── templates/        # 技能与命令模板
 ```
 
-**加新占卜术 = 新建 `plugins/X.ts`(导出 `元信息`/`工具`/`数据`)+ 聚合器数组加一行**,互不影响。数据层每条记录可溯源到典籍原文行号(`来源` 字段)。
+**加新占卜术 = 新建 `plugins/X.ts`(导出 `元信息`/`工具`/`数据`)+ 聚合器数组加一行**,互不影响。数据层每条记录可溯源到典籍原文行号(`来源` 字段)。八部典籍对应算法全部独立成模块,单向依赖 lib → 不跨术耦合。
 
 ## 安装
 
@@ -61,7 +68,7 @@ opencode-tianji/
 
 ## stdio MCP(0.5.0 起)
 
-复用全部 8 个工具的 stdio MCP 通道,可接入 Claude Desktop / Cursor / Codex 等任意 MCP 客户端:
+复用全部 13 个工具的 stdio MCP 通道,可接入 Claude Desktop / Cursor / Codex 等任意 MCP 客户端:
 
 ```sh
 bun run node_modules/opencode-tianji/mcp/index.ts
@@ -90,37 +97,47 @@ import { buildPan, buildPanByGanzhi } from "opencode-tianji/engine";
 | `qigua` 起卦 | 梅花易数时间起卦 / 三枚铜钱六掷(seed 可复现) / 报数起卦 / 字占起卦 / 手动指定卦名,输出本卦、变卦、卦辞、世应、起卦干支 | `method`、`datetime`、`卦名`、`动爻`、`数`、`字`、`seed`、`晚子时`、`经度` |
 | `paipan` 排盘 | 六爻排盘:六神/六亲/纳甲/五行、世应动空破、卦身、旬空、月破、六冲六合三合、旺相休囚、飞伏神 | `卦名`、`动爻`、`datetime`、`占事`、`晚子时`、`经度` |
 | `duangua` 断卦 | 按占事取用神,结合旺衰动空破与世应关系给出规则性吉凶倾向 | `卦名`、`占事`、`动爻`、`datetime`、`晚子时`、`经度` |
-| `cha` 查卦 | 卦辞、爻辞(动爻高亮)、乾坤用九用六、**彖传/大象**、变卦卦辞、焦氏易林变诗、上下卦八卦象意 | `卦名`、`动爻` |
+| `cha` 查卦 | 卦辞、爻辞(动爻高亮)、乾坤用九用六、**彖传/大象**、变卦卦辞、焦氏易林变诗、**朱熹卦爻注**、**序卦/杂卦/文言**、上下卦八卦象意 | `卦名`、`动爻` |
+| `duangua` 断卦 | 按占事取用神,结合旺衰动空破与世应关系给出规则性吉凶倾向,并附**相似卦例佐证**(381 例卦例库) | `卦名`、`占事`、`动爻`、`datetime`、`晚子时`、`经度` |
 | `meihua` 梅花断卦 | 梅花易数体用生克:分体卦用卦、求变卦互卦,按五行生克断吉凶、看体卦卦气旺衰,并按十八类占(天时/人事/家宅/婚姻/求财/疾病…)出白话断语 | `卦名`、`动爻`、`占事`、`datetime`、`晚子时`、`经度` |
 | `bazi` 八字 | 八字四柱排盘:年/月/日/时干支(精确节气),十神、地支藏干、纳音、五行统计、大运流年 | `datetime`、`性别`、`晚子时`、`经度` |
 | `liuren` 小六壬 | 小六壬占课:月/日/时起课(大安/留连/速喜/赤口/小吉/空亡),输出落宫、吉凶与断辞 | `datetime`、`month`、`day` |
 | `almanac` 黄历 | 农历/干支/节气/宜忌/吉神方位/冲煞/旬空(基于 lunar-javascript 农历历法标准) | `datetime` |
+| `dayan` 大衍 | 大衍筮法(蓍草四营十八变):49 策分二挂一揲四归奇,三变成爻、十八变成卦,seed 可复现 | `seed`、`占事` |
+| `yilin` 易林占 | 焦氏易林占:本卦+之卦取 4096 首变诗断吉凶,之卦可指定/动爻推/随机(seed 复现) | `本卦`、`之卦`、`动爻`、`随机`、`seed` |
+| `jingshi` 京氏占 | 京氏易传占:八宫/宫五行/世应/纳甲六亲/**飞伏神**,据占事取用神看显伏 | `卦名`、`占事` |
+| `huozhulin` 火珠林 | 火珠林钱卜断占:按占事门类(求财/婚姻/疾病/出行/失物/射覆…)匹配《火珠林》口占断辞 | `占事`、`卦名` |
+| `chazhu` 查注 | 经传查注:查某卦朱熹《周易本义》卦爻注/十翼(序卦/杂卦/文言)/彖传大象,附白话导读 | `卦名`、`范围`、`动爻` |
 
 ## 使用技能(推荐)
 
 复制技能到项目并重启 opencode:
 
 ```sh
-mkdir -p .opencode/skills/zhanbu
-cp node_modules/opencode-tianji/templates/skills/zhanbu/SKILL.md .opencode/skills/zhanbu/
+for s in zhanbu meihua bazi liuren; do
+  mkdir -p .opencode/skills/$s
+  cp -r node_modules/opencode-tianji/templates/skills/$s/* .opencode/skills/$s/
+done
 ```
 
-技能定义"先问清楚再算"的完整占卜流程:先收集【占卜事项、求测人性别、地理位置、是否本人、起卦时间】,再起卦、排盘、断卦,并要求每个卦学术语后附白话翻译。
+`zhanbu` 技能定义"先问清楚再算"的完整六爻占卜流程:先收集【占卜事项、求测人性别、地理位置、是否本人、起卦时间】,再起卦、排盘、断卦,并要求每个卦学术语后附白话翻译。`meihua`/`bazi`/`liuren` 为各术轻量技能(最小信息先问后算)。
 
-## 使用 /zhanbu 命令
+## 使用命令
 
 ```sh
 mkdir -p .opencode/command
-cp node_modules/opencode-tianji/templates/command/zhanbu.md .opencode/command/
+cp node_modules/opencode-tianji/templates/command/*.md .opencode/command/
 ```
 
-之后直接输入 `/zhanbu 占卜事项` 触发完整流程。
+可用命令:`/zhanbu`(六爻完整流程)、`/paipan`(快速排盘)、`/meihua`、`/bazi`、`/liuren`、`/almanac`、`/cha`(查卦)。如输入 `/zhanbu 占卜事项` 触发完整流程,`/bazi 1990-05-06 08:00 男` 直接排盘。
 
 ## 示例用法
 
 - 让模型"起一卦问求财" → 模型会先问必问信息,再依次调 `qigua` → `paipan` → `duangua` + `cha`。
 - 手动指定:`qigua` method=`manual`,卦名=`乾`,动爻=`[1,3]`。
 - 起卦时间:`qigua` method=`time`,datetime=`2024-02-10 12:00`。
+- 古法占:`dayan`(大衍筮法)、`yilin` 本卦=`乾` 之卦=`坤`(易林变诗)、`jingshi` 卦名=`乾`(京氏飞伏)。
+- 断卦佐证:`duangua` 会附「相似卦例」段(381 例卦例库);`chazhu` 卦名=`乾` 查朱熹注/十翼。
 
 ## 六爻解卦评测基准(生态空白)
 

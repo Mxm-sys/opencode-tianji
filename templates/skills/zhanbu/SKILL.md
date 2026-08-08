@@ -80,10 +80,11 @@ description: 六爻占卜工作流。当用户请求占卜、起卦、算卦、�
 
 ## 参考资料
 
-- 起卦/排盘规则:`.opencode/plugins/zhanbu.ts`(7 个工具 qigua/paipan/duangua/cha/meihua/bazi/liuren)
+- 起卦/排盘规则:`.opencode/plugins/zhanbu.ts`(8 个工具 qigua/paipan/duangua/cha/meihua/bazi/liuren/almanac)
 - 梅花体用断卦:`.opencode/plugins/meihua.ts`(十八类占断辞据 data/meihua.json)
 - 八字四柱:`.opencode/plugins/bazi.ts`(十神/藏干/纳音/大运据 data/bazi.json)
 - 小六壬:`.opencode/plugins/liuren.ts`(六宫断辞据 data/liuren.json)
+- 农历黄历:`.opencode/plugins/almanac.ts`(农历/干支/宜忌/冲煞,基于 lunar-javascript)
 - 断卦法则:知识库/docs/06_断卦法则.md
 - 分类占断:知识库/docs/07_分类占断.md
 - 卦例参考:知识库/docs/08_卦例汇编.md

@@ -90,6 +90,27 @@ export function loadYilin(): YilinItem[] {
   return (loadJson("yilin.json") as { 易林: YilinItem[] }).易林;
 }
 
+/** 京氏易传 64 卦飞伏(jingshi_fufu.json:宫/伏卦/伏神干支/五行/六亲) */
+export function loadJingshiFufu(): { 卦名: string; 宫: string; 宫五行: string; 伏卦: string; 伏神干支: string; 伏神五行: string; 伏神六亲: string }[] {
+  return (loadJson("jingshi_fufu.json") as { 六十四卦: { 卦名: string; 宫: string; 宫五行: string; 伏卦: string; 伏神干支: string; 伏神五行: string; 伏神六亲: string }[] }).六十四卦;
+}
+
+/** 十翼(十翼.json:系辞上/系辞下/文言/序卦/杂卦 经文) */
+export function loadShiyi(): Json {
+  return loadJson("十翼.json");
+}
+
+/** 占验卦例库(guaili.json:增删卜易 260 + 卜筮正宗 115,含 卦名/变卦/干支/断语/应期/白话/来源) */
+export function loadGuaili(): { 书号: number; 卷: string; 章节: string; 占事: string; 卦名: string; 变卦: string; 干支: string; 卦象与断语: string; 应期原理: string; 白话: string; 来源: string }[] {
+  return (loadJson("guaili.json") as { 卦例: { 书号: number; 卷: string; 章节: string; 占事: string; 卦名: string; 变卦: string; 干支: string; 卦象与断语: string; 应期原理: string; 白话: string; 来源: string }[] }).卦例;
+}
+
+/** 火珠林(huozhulin.json:按门类分条的结构化断辞,若非空文件返回 undefined 表示未就位) */
+export function loadHuozhulin(): Json | undefined {
+  const p = path.join(DATA_DIR, "huozhulin.json");
+  return fs.existsSync(p) ? loadJsonPath(p) : undefined;
+}
+
 /** 书层书目摘要(books/index.json,位于 data 上一级的 books 目录) */
 export function loadBooks(): BooksIndex {
   return loadJsonPath(path.join(DATA_DIR, "..", "books", "index.json")) as BooksIndex;
@@ -109,4 +130,12 @@ export function guaByName(name: string): { 卦名: string; 卦序: number } | un
 /** 卦序 1-64;找不到返回 undefined */
 export function guaIndex(name: string): number | undefined {
   return guaByName(name)?.卦序;
+}
+
+/** 朱熹《周易本义》卷注(books/08_周易本义.json 的 卷注 字段:卷一/卷二 64卦 + 卷三系辞 + 卷四序卦/杂卦) */
+export function loadZhuxi(): Record<string, unknown> {
+  const b = loadJsonPath(path.join(DATA_DIR, "..", "books", "08_周易本义.json")) as Record<string, unknown>;
+  const vz = b["卷注"];
+  if (!vz || typeof vz !== "object") throw new Error(`书8 卷注缺失`);
+  return vz as Record<string, unknown>;
 }

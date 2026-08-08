@@ -23,8 +23,8 @@ beforeAll(async () => {
   tools = hooks.tool;
 });
 
-test("1. 插件默认导出返回 {tool} 且含 8 个工具", async () => {
-  expect(Object.keys(tools)).toEqual(["qigua", "paipan", "duangua", "cha", "meihua", "bazi", "liuren", "almanac"]);
+test("1. 插件默认导出返回 {tool} 且含 13 个工具", async () => {
+  expect(Object.keys(tools)).toEqual(["qigua", "paipan", "duangua", "cha", "meihua", "bazi", "liuren", "almanac", "dayan", "yilin", "jingshi", "huozhulin", "chazhu"]);
 });
 
 test("1. qigua manual 乾 无动爻 → 卦名/卦符/世应/卦辞", async () => {
@@ -107,8 +107,8 @@ test("9. qigua coins → 不抛错且含动爻信息", async () => {
   expect(r).toContain("本卦");
 });
 
-test("10. 插件默认导出含 8 个工具", async () => {
-  expect(Object.keys(tools)).toEqual(["qigua", "paipan", "duangua", "cha", "meihua", "bazi", "liuren", "almanac"]);
+test("10. 插件默认导出含 13 个工具", async () => {
+  expect(Object.keys(tools)).toEqual(["qigua", "paipan", "duangua", "cha", "meihua", "bazi", "liuren", "almanac", "dayan", "yilin", "jingshi", "huozhulin", "chazhu"]);
 });
 
 test("11. qigua shu 报数 [7,3,15] → 确定卦", async () => {

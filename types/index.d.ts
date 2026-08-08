@@ -4,7 +4,7 @@
  */
 import type { Plugin, ToolDefinition } from "@opencode-ai/plugin";
 
-/** 插件默认导出: async () => ({ tool: { qigua, paipan, duangua, cha, meihua, bazi, liuren, almanac } }) */
+/** 插件默认导出: async () => ({ tool: { qigua, paipan, duangua, cha, meihua, bazi, liuren, almanac, dayan, yilin, jingshi, huozhulin, chazhu } }) */
 declare const plugin: Plugin;
 export default plugin;
 
@@ -14,6 +14,15 @@ export declare const 工具: {
   paipan: ToolDefinition;
   duangua: ToolDefinition;
   cha: ToolDefinition;
+  meihua: ToolDefinition;
+  bazi: ToolDefinition;
+  liuren: ToolDefinition;
+  almanac: ToolDefinition;
+  dayan: ToolDefinition;
+  yilin: ToolDefinition;
+  jingshi: ToolDefinition;
+  huozhulin: ToolDefinition;
+  chazhu: ToolDefinition;
 };
 
 /** 插件元信息 */
