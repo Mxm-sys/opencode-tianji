@@ -1,7 +1,0 @@
-{
-  "ok": false,
-  "output": "",
-  "toolCalls": [],
-  "reason": "命令执行失败(command 未找到或运行错误):Unexpected server error. Check server logs for details."
-}
-exit=1
