@@ -1,0 +1,78 @@
+# Task 4 · Header-Encoding Fix (x-opencode-directory with CJK path)
+
+Date: 2026-08-09
+Scope: `e2e/tools.ts` only
+
+## Bug
+
+`fetchToolIds()` sent `x-opencode-directory` with the raw directory path.
+opencode server (v1.18.15, packages/server/src/location.ts) decodes the header
+value with `decode()`, so a raw CJK path fails:
+
+```
+请求 /experimental/tool/ids 失败:Header 'x-opencode-directory' has invalid value: '/home/mm/桌面/opencode/项目/天机测试场'
+```
+
+## Fix
+
+`e2e/tools.ts:246` — `fetchToolIds()`:
+
+```diff
+-      headers: { "x-opencode-directory": dir },
++      headers: { "x-opencode-directory": encodeURIComponent(dir) },
+```
+
+Chinese doc-comment added above the function documenting the contract:
+server decodes (decode()), so client must encode (encodeURIComponent).
+
+Grep audit for `x-opencode-directory` in e2e/: only `fetchToolIds()` sends the
+header (tools.ts:250→encoded). run.ts / chat.ts / command.ts use the `--dir`
+flag, untouched.
+
+## Verification
+
+### 1. Unit tests
+
+```
+$ bun test e2e/tools.test.ts
+ 8 pass
+ 0 fail
+ 14 expect() calls
+
+$ bun test e2e/
+ 51 pass
+ 0 fail
+ 92 expect() calls
+Ran 51 tests across 6 files.
+```
+
+### 2. REAL run against CJK-path test project (starts real `opencode serve`)
+
+```
+$ bun run e2e/tools.ts --dir "/home/mm/桌面/opencode/项目/天机测试场"
+{"ids":["invalid","question","bash","read","glob","grep","edit","write","task","webfetch","todowrite","websearch","skill","apply_patch","qigua","paipan","duangua","cha","meihua","bazi","liuren","almanac","dayan","yilin","jingshi","huozhulin","chazhu"],"missing":[],"port":4096}
+$ echo $?
+0
+```
+
+- `missing: []` — all 13 tianji tools registered:
+  qigua, paipan, duangua, cha, meihua, bazi, liuren, almanac, dayan, yilin,
+  jingshi, huozhulin, chazhu.
+
+### 3. Residue cleanup
+
+```
+$ rm -rf "/home/mm/桌面/opencode/项目/天机测试场/.xdg"
+$ ls -a "/home/mm/桌面/opencode/项目/天机测试场"
+. .. .codegraph .omo .opencode opencode.json
+```
+
+- `.xdg` removed from test project. No new `.xdg` residue.
+- `/tmp/tianji-e2e-39118-q91qzcl9` is PRE-EXISTING (mtime 2026-08-09 01:13,
+  before this task's run at ~01:25); this run used `--dir` and created no
+  scaffold, so no new `tianji-e2e-*` residue from this run.
+
+## Files changed
+
+- `e2e/tools.ts` (header encode + contract comment)
+- this evidence file

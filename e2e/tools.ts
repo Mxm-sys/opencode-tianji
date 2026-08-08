@@ -242,12 +242,19 @@ async function healthOk(port: number): Promise<boolean> {
   }
 }
 
-/** GET /experimental/tool/ids;非 JSON 字符串数组(如 ConfigInvalidError 对象)抛中文错误。 */
+/**
+ * GET /experimental/tool/ids;非 JSON 字符串数组(如 ConfigInvalidError 对象)抛中文错误。
+ *
+ * x-opencode-directory 头契约:opencode 服务端(location.ts)对头值做 `decode()`
+ * (URL 解码)还原路径,因此**客户端必须先 `encodeURIComponent` 编码**;
+ * 直接传原始路径在含非 ASCII 字符(如中文目录)时会报
+ * `Header 'x-opencode-directory' has invalid value: ...`。
+ */
 async function fetchToolIds(port: number, dir: string): Promise<string[]> {
   let res: Response;
   try {
     res = await fetch(`http://127.0.0.1:${port}/experimental/tool/ids`, {
-      headers: { "x-opencode-directory": dir },
+      headers: { "x-opencode-directory": encodeURIComponent(dir) },
     });
   } catch (err) {
     throw new Error(
