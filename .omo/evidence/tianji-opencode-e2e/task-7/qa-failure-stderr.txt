@@ -1,0 +1,4 @@
+[run] 开始 E2E 全流程(模型:deepseek/deepseek-v4-flash)
+[detect] 通过:opencode 1.18.15(/home/mm/.opencode/bin/opencode)
+[provider] 失败:环境变量 TIANJI_E2E_PROVIDER_JSON 不是合法的 JSON 对象:JSON Parse error: Expected '}'。请复制你全局 opencode 配置的 provider.deepseek 整段为合法 JSON 字符串后重试。
+[cleanup] 临时目录已清理
