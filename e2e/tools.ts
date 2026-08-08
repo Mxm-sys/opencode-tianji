@@ -126,6 +126,13 @@ export async function verifyToolsRegistered(opts: {
     stdio: ["pipe", "pipe", "pipe"],
   });
 
+  // spawn 失败(二进制消失/不可执行等)时记录错误;若不监听,子进程会发出
+  // 未处理的 'error' 事件直接崩掉整个进程(chat.ts:193 / command.ts:261 同款处理)
+  let spawnError: Error | null = null;
+  child.on("error", (err: Error) => {
+    spawnError = err;
+  });
+
   let stdoutBuf = "";
   let stderrBuf = "";
   child.stdout?.setEncoding("utf8");
@@ -139,10 +146,10 @@ export async function verifyToolsRegistered(opts: {
 
   try {
     // (2) 从 serve 输出解析实际端口(≤15s;解析 stdout,stderr 兜底)
-    const port = await waitForPort(child, () => stdoutBuf, () => stderrBuf, PORT_PARSE_TIMEOUT_MS);
+    const port = await waitForPort(child, () => stdoutBuf, () => stderrBuf, PORT_PARSE_TIMEOUT_MS, () => spawnError);
 
     // (3) 轮询 /global/health 直到 200(≤30s)
-    await waitForHealth(child, port, HEALTH_TIMEOUT_MS);
+    await waitForHealth(child, port, HEALTH_TIMEOUT_MS, () => spawnError);
 
     // (4) preflight(软):serve 日志出现插件路径 / 配置文件路径特征 → 加载线索
     const serveLog = stdoutBuf + stderrBuf;
@@ -172,15 +179,20 @@ export async function verifyToolsRegistered(opts: {
   }
 }
 
-/** 轮询 serve 输出直到解析出端口;超时或子进程提前退出抛中文错误。 */
+/** 轮询 serve 输出直到解析出端口;超时、spawn 失败或子进程提前退出抛中文错误。 */
 async function waitForPort(
   child: ChildProcess,
   getStdout: () => string,
   getStderr: () => string,
   timeoutMs: number,
+  getSpawnError: () => Error | null,
 ): Promise<number> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
+    const spawnErr = getSpawnError();
+    if (spawnErr !== null) {
+      throw new Error(`启动 opencode serve 子进程失败:${spawnErr.message}`);
+    }
     if (child.exitCode !== null) {
       throw new Error(
         `opencode serve 提前退出(exit=${child.exitCode}):\n${logExcerpt(getStdout() + getStderr())}`,
@@ -196,10 +208,19 @@ async function waitForPort(
   );
 }
 
-/** 轮询 /global/health 直到 200;超时或 serve 提前退出抛中文错误。 */
-async function waitForHealth(child: ChildProcess, port: number, timeoutMs: number): Promise<void> {
+/** 轮询 /global/health 直到 200;超时、spawn 失败或 serve 提前退出抛中文错误。 */
+async function waitForHealth(
+  child: ChildProcess,
+  port: number,
+  timeoutMs: number,
+  getSpawnError: () => Error | null,
+): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
+    const spawnErr = getSpawnError();
+    if (spawnErr !== null) {
+      throw new Error(`启动 opencode serve 子进程失败:${spawnErr.message}`);
+    }
     if (child.exitCode !== null) {
       throw new Error(`健康检查前 serve 已退出(exit=${child.exitCode})`);
     }

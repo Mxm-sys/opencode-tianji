@@ -1,0 +1,44 @@
+# task-4: spawn error 监听修复(e2e/tools.ts)
+
+## 背景(F2 代码审查 should-fix)
+`verifyToolsRegistered` spawn 出的 `opencode serve` 子进程没有注册 `error` 事件监听:
+若 spawn 失败(二进制在 detectOpencode() 与 spawn 之间消失 / 不可执行),子进程会发出
+未处理的 `'error'` 事件 → 进程以原始堆栈直接崩溃,而非中文错误。
+兄弟模块已处理:chat.ts:193(`child.once("error", ...)` → reject)、
+command.ts:261(解析 exited 时带 spawnError)。tools.ts 是唯一遗漏者。
+
+## 修改(e2e/tools.ts,仅此一个文件)
+1. spawn 之后新增:
+   ```ts
+   let spawnError: Error | null = null;
+   child.on("error", (err: Error) => { spawnError = err; });
+   ```
+   记录错误但不崩溃(不再有未处理 'error' 事件)。
+2. `waitForPort` / `waitForHealth` 各增一个 `getSpawnError: () => Error | null`
+   参数(内部函数,未改导出签名),轮询循环体开头检查:
+   ```ts
+   const spawnErr = getSpawnError();
+   if (spawnErr !== null) {
+     throw new Error(`启动 opencode serve 子进程失败:${spawnErr.message}`);
+   }
+   ```
+   立即抛中文错误,不再空转到超时(≤15s / ≤30s)。
+3. 两处调用传入 `() => spawnError`。
+4. 保留 finally 的 killChild(幂等安全:spawn 失败后 kill 抛错也被 try/catch 吞掉,
+   exitCode 检查兜底)。
+
+## 验证
+- `bun test e2e/tools.test.ts` → 8 pass, 0 fail
+- `bun test e2e/` → 51 pass, 0 fail(6 文件)
+- 失败路径(直接调用 verifyToolsRegistered,opencodeBin=/nonexistent/opencode):
+  ```
+  ERR: 启动 opencode serve 子进程失败:ENOENT: no such file or directory, posix_spawn '/nonexistent/opencode'
+  ```
+  干净中文错误,无原始堆栈,无崩溃。(注:CLI 层用 TIANJI_E2E_OPENCODE_BIN 无法触发,
+  因 detectOpencode() 探测失败会自动回退 PATH,属既有设计。)
+- 快乐路径无行为变化:真实 serve 正常启动,13 工具全注册,exit 0。
+
+## 未改动
+- chat.ts / command.ts / run.ts / package.json:未触碰。
+- 导出签名(TIANJI_TOOLS / parseServerPort / verifyToolsRegistered / ToolRegistrationResult):未变。
+- 未新增依赖。
