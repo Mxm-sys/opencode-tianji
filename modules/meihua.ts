@@ -18,7 +18,7 @@ import * as hex from "../lib/hex";
 
 const DI = hex.DI;
 const WEI = hex.WEI;
-const { guaOf, guaOfTrigrams, splitUpDown, bianGuaName, seasonOf, normDongs, parseDT } = hex;
+const { guaOf, guaOfTrigrams, splitUpDown, bianGuaName, seasonOf, normDongs, parseDT, shortGuaName } = hex;
 const { SHENG, KE } = hex;
 const BAGUA_WX = hex.BAGUA_WX;
 const BAGUA_SYM = hex.BAGUA_SYM;
@@ -106,7 +106,7 @@ function verdictAdvice(verdict: string, qiState: string): string {
 async function meihuaExecute(args: {
   卦名: string; 动爻?: number[]; datetime?: string; 占事?: string;
 }): Promise<string> {
-  const gua = guaOf(args.卦名);
+  const gua = guaOf(shortGuaName(args.卦名));
   if (!gua) throw new Error(`未找到卦:「${args.卦名}」`);
   const dongs = normDongs(args.动爻);
   const t = parseDT(args.datetime);

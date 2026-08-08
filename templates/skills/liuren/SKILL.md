@@ -28,5 +28,5 @@ description: 小六壬占课工作流。当用户请求小六壬(触发词:小�
 
 ## 参考资料
 
-- 占课工具:`.opencode/plugins/liuren.ts`(六宫断辞据 data/liuren.json)
-- 六宫掌诀:知识库/data/liuren.json(宫名/位/五行/吉凶/断辞/白话/总结)
+- 占课工具:opencode-tianji 插件提供 liuren 工具(六宫断辞据包内 data/liuren.json)
+- 六宫掌诀:包内 data/liuren.json(宫名/位/五行/吉凶/断辞/白话/总结)

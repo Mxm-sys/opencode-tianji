@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
+import { mirrorTest } from "./helpers/mirror";
 
 const DATA = path.join(import.meta.dir, "..", "data");
 const shiyi = JSON.parse(readFileSync(path.join(DATA, "十翼.json"), "utf8")) as {
@@ -56,11 +57,8 @@ describe("十翼(系辞/文言/序卦/杂卦)", () => {
     }
   });
 
-  test("镜像(知识库)与包内一致", () => {
-    const mirror = path.join(import.meta.dir, "..", "..", "知识库", "data", "十翼.json");
-    if (existsSync(mirror)) {
-      const m = JSON.parse(readFileSync(mirror, "utf8"));
-      expect(m).toEqual(shiyi);
-    }
+  mirrorTest("镜像(知识库)与包内一致", "data/十翼.json", (mirror) => {
+    const m = JSON.parse(readFileSync(mirror, "utf8"));
+    expect(m).toEqual(shiyi);
   });
 });

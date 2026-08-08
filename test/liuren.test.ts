@@ -1,11 +1,12 @@
 /**
  * liuren 小六壬占课测试(不 mock,直接调用 liurenTool.execute)。
- * 运行: cd /home/mxm/桌面/fun/占卜/opencode-tianji && bun test test/liuren.test.ts
+ * 运行: bun test test/liuren.test.ts
  */
 import { test, expect } from "bun:test";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { liurenTool } from "../modules/liuren";
+import { mirrorTest } from "./helpers/mirror";
 
 const ctx = {
   sessionID: "test",
@@ -65,9 +66,9 @@ test("5. liuren.json 六宫字段完整", () => {
   }
 });
 
-test("6. 两处 liuren.json byte 级一致", () => {
+mirrorTest("6. 两处 liuren.json byte 级一致", "data/liuren.json", (mirror) => {
   const a = fs.readFileSync(path.join(import.meta.dir, "../data/liuren.json"));
-  const b = fs.readFileSync(path.join(import.meta.dir, "../../知识库/data/liuren.json"));
+  const b = fs.readFileSync(mirror);
   expect(a.equals(b)).toBe(true);
 });
 

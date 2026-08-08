@@ -1,6 +1,6 @@
 /**
  * dayan 大衍筮法测试(直接调用 dayanExecute)。
- * 运行: cd /home/mxm/桌面/fun/占卜/opencode-tianji && bun test test/dayan.test.ts
+ * 运行: bun test test/dayan.test.ts
  */
 import { test, expect } from "bun:test";
 import { dayanExecute } from "../modules/dayan";

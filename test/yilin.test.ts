@@ -1,6 +1,6 @@
 /**
  * yilin 焦氏易林占测试(直接调用 yilinExecute)。
- * 运行: cd /home/mxm/桌面/fun/占卜/opencode-tianji && bun test test/yilin.test.ts
+ * 运行: bun test test/yilin.test.ts
  */
 import { test, expect } from "bun:test";
 import { yilinExecute } from "../modules/yilin";

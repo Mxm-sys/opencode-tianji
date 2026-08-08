@@ -1,6 +1,6 @@
 /**
  * jingshi 京氏易传占测试(直接调用 jingshiExecute)。
- * 运行: cd /home/mxm/桌面/fun/占卜/opencode-tianji && bun test test/jingshi.test.ts
+ * 运行: bun test test/jingshi.test.ts
  */
 import { test, expect } from "bun:test";
 import * as db from "../lib/db";

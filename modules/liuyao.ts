@@ -16,8 +16,8 @@ const TG = hex.TG;
 const WEI = hex.WEI;
 const NUM_TO_GUA = hex.NUM_TO_GUA;
 const LINES_TO_TRIGRAM = hex.LINES_TO_TRIGRAM;
-const { guaList, guaOf, guaOfTrigrams, splitUpDown } = hex;
-const { parseDT, fullGanZhi, normDongs, bianGuaName, relation, 口径披露 } = hex;
+const { guaList, guaOf, guaOfTrigrams, splitUpDown, shortGuaName } = hex;
+const { parseDT, fullGanZhi, normDongs, bianGuaName, relation, simpGuaName, 口径披露 } = hex;
 
 /** 常用汉字笔画表(字占用)。未收录的字按 Unicode 码点 mod 8 兜底,与梅花字占"以笔画起卦"的简化近似 */
 const STROKE_POS: Map<string, number> = new Map([
@@ -126,7 +126,6 @@ async function qigua(args: {
 
   let gua: Gua;
   let dongs: number[] = [];
-  let throwLines: string[] = [];
 
   if (method === "shu") {
     // 报数起卦(梅花易数·物数占):取一至三个数;上卦=第一数÷8余(0取8),
@@ -142,7 +141,7 @@ async function qigua(args: {
     gua = guaOfTrigrams(up, dn)!;
     dongs = [dong];
     out.push(
-      `所报数: ${nums.join("、")}${nums.length < 3 ? `(补第${nums.length + 1}数 = 第1数+时辰${gzFull.hgz.zhi}=${hz} → ${second};补第3数 = ${total})` : ""}`,
+      `所报数: ${nums.join("、")}${nums.length === 1 ? `(补第2数 = 第1数+时辰${gzFull.hgz.zhi}=${hz} → ${second};补第3数 = ${total})` : nums.length === 2 ? `(补第3数 = 第1数+第2数 → ${total})` : ""}`,
       `上卦 = ${nums[0]}÷8 余${nums[0] % 8 || "0(取8)"} = ${up}   下卦 = ${second}÷8 余${second % 8 || "0(取8)"} = ${dn}`,
       `动爻 = ${total}÷6 余${total % 6 || "0(取6)"} = 第${dong}爻`,
       "",
@@ -227,7 +226,7 @@ async function qigua(args: {
     gua = guaOfTrigrams(up, down)!;
   } else {
     if (!args.卦名) throw new Error("manual 方式需提供 卦名");
-    gua = guaOf(args.卦名) ?? (() => { throw new Error(`未找到卦:「${args.卦名}」`); })();
+    gua = guaOf(shortGuaName(args.卦名)) ?? (() => { throw new Error(`未找到卦:「${args.卦名}」`); })();
     dongs = normDongs(args.动爻);
   }
 
@@ -244,7 +243,6 @@ async function qigua(args: {
   );
   if (bianGua) out.push(`变卦卦辞: ${bianGua.卦辞}  (据 liushi_si_gua.json)`);
   out.push("", "数据出处: 起卦算法据梅花易数·时间起卦/增删卜易·铜钱卦;卦名/卦辞/世应据 liushi_si_gua.json", 口径披露());
-  void throwLines;
   if (args.format === "json") {
     return JSON.stringify({
       工具: "qigua", method, 起卦时间: `${fmtDT(t)} ${guzhiStr(gzFull)}`,
@@ -287,6 +285,11 @@ async function paipan(args: { 卦名: string; 动爻?: number[]; datetime?: stri
     for (const q of ys.use) fillFuShen(pan, q);
     out.push(`─ 用神(${args.占事}) ─`, `  取用: ${ys.note} (据 docs/07_分类占断.md 附:分类取用总表)`);
     for (const q of ys.use) {
+      if (q === "世" || q === "应") {
+        const l = q === "世" ? shiLine : yingLine;
+        out.push(`  ${q}爻在${l.wei}(${l.gzName}${l.wx}),${l.state}${l.isDong ? ",发动" : ""}${l.isKong ? ",旬空" : ""}${l.isPo ? ",月破" : ""}`);
+        continue;
+      }
       const hit = lines.filter((l) => l.qin === q);
       if (hit.length) {
         for (const l of hit) {
@@ -333,6 +336,14 @@ async function duangua(args: {
   ];
   const verdicts: string[] = [];
   for (const q of ys.use) {
+    if (q === "世" || q === "应") {
+      const l = q === "世" ? shiLine : yingLine;
+      out.push(`  ${q}爻现于${l.wei}(${l.gzName}${l.wx}),处${l.state}${l.isDong ? ",发动" : ",安静"}${l.isKong ? ",旬空" : ""}${l.isPo ? ",月破" : ""}`);
+      const good = (l.state === "旺" || l.state === "相") && !l.isKong && !l.isPo;
+      const bad = l.isKong || l.isPo || l.state === "死" || l.state === "囚";
+      verdicts.push(`${q}爻: ${good ? "旺相有气,主吉" : bad ? "失陷(空/破/衰死),主不利" : "平(有气但未旺)"}`);
+      continue;
+    }
     fillFuShen(pan, q);
     const hit = pan.lines.filter((l) => l.qin === q);
     if (hit.length) {
@@ -404,21 +415,11 @@ function clip(s: string, n = 60): string {
   return s.length > n ? `${s.slice(0, n)}…` : s;
 }
 
-/** 朱熹卷注用繁体卦名,统一为简体(如 既濟→既济),便于与 64 卦表匹配 */
-const FAN2JIAN: Record<string, string> = {
-  訟: "讼", 師: "师", 謙: "谦", 隨: "随", 蠱: "蛊", 臨: "临", 觀: "观", 賁: "贲",
-  剝: "剥", 復: "复", 頤: "颐", 過: "过", 離: "离", 遯: "遁", 壯: "壮", 晉: "晋",
-  損: "损", 漸: "渐", 歸: "归", 豐: "丰", 兌: "兑", 渙: "涣", 節: "节", 濟: "济",
-};
-function toJian(s: string): string {
-  return [...s].map((c) => FAN2JIAN[c] ?? c).join("");
-}
-
 /** 朱熹《周易本义》卷一/卷二 找卦(书8),返回该卦卷注 */
 function zhuxiGuaNote(name: string): { 卷: string; 卦: Record<string, any> } | undefined {
   const vz = db.loadZhuxi() as Record<string, unknown>;
   for (const 卷 of ["卷一·上经", "卷二·下经"]) {
-    const 卦 = (vz[卷] as Record<string, any>[])?.find((g) => toJian(g.卦名) === name);
+    const 卦 = (vz[卷] as Record<string, any>[])?.find((g) => simpGuaName(g.卦名) === name);
     if (卦) return { 卷, 卦 };
   }
   return undefined;
@@ -508,7 +509,7 @@ function guailiSimilar(占事: string, guaName: string, bianName: string): strin
 /* ==================== 工具 4:查卦 ==================== */
 
 async function cha(args: { 卦名: string; 动爻?: number[] }): Promise<string> {
-  const gua = guaOf(args.卦名);
+  const gua = guaOf(shortGuaName(args.卦名));
   if (!gua) throw new Error(`未找到卦:「${args.卦名}」`);
   const dongs = normDongs(args.动爻);
   const out: string[] = [
@@ -531,9 +532,9 @@ async function cha(args: { 卦名: string; 动爻?: number[] }): Promise<string>
     `【变卦】${dongs.length ? `${bian} ${bianGua?.卦符 ?? ""} (${bianGua?.上下卦 ?? ""})` : "无(静卦)"}` +
       `${bianGua ? `  卦辞:${bianGua.卦辞} (据 liushi_si_gua.json)` : ""}`,
   );
-  // 焦氏易林:新 schema 为数组,按 本卦/之卦 查找
+  // 焦氏易林:新 schema 为数组,按 本卦/之卦 查找(易林数据用繁体,统一转简体比对)
   const yilin = db.loadYilin();
-  const poem = yilin.find((e) => e.本卦 === gua.卦名 && e.之卦 === bian)?.诗;
+  const poem = yilin.find((e) => simpGuaName(e.本卦) === gua.卦名 && simpGuaName(e.之卦) === bian)?.诗;
   out.push(`【焦氏易林】${gua.卦名}之${bian}: ${poem ?? "(易林中无此条)"}  (据 yilin.json)`);
   const tuan = db.loadTuanXiang();
   if (tuan) {

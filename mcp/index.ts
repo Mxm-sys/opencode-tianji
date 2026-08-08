@@ -24,13 +24,16 @@ type Exec = (args: Record<string, unknown>) => Promise<string>;
 function register(
   name: string,
   desc: string,
-  argSpec: Record<string, { type: "string" | "number" | "array" | "boolean"; optional?: boolean; desc?: string }>,
+  argSpec: Record<string, { type: "string" | "number" | "stringOrNumber" | "array" | "boolean"; optional?: boolean; desc?: string }>,
   exec: Exec,
 ): void {
   const shape: Record<string, z.ZodTypeAny> = {};
   for (const [k, v] of Object.entries(argSpec)) {
     const base =
-      v.type === "number" ? z.number() : v.type === "array" ? z.array(z.number()) : v.type === "boolean" ? z.boolean() : z.string();
+      v.type === "number" ? z.number() :
+      v.type === "stringOrNumber" ? z.union([z.string(), z.number()]) :
+      v.type === "array" ? z.array(z.number()) :
+      v.type === "boolean" ? z.boolean() : z.string();
     shape[k] = v.optional ? base.optional() : base.describe(v.desc ?? k);
   }
   server.registerTool(name, { description: desc, inputSchema: shape }, async (params) => {
@@ -45,7 +48,7 @@ register("qigua", "起卦:梅花时间/铜钱(seed可复现)/报数/字占/手�
   卦名: { type: "string", optional: true }, 动爻: { type: "array", optional: true },
   数: { type: "array", optional: true }, 字: { type: "string", optional: true },
   晚子时: { type: "string", optional: true }, 经度: { type: "number", optional: true },
-  seed: { type: "number", optional: true }, format: { type: "string", optional: true },
+  seed: { type: "stringOrNumber", optional: true }, format: { type: "string", optional: true },
 }, async (a) => (await zhanbu.工具.qigua.execute(a as never, {} as never)) as string);
 
 register("paipan", "六爻排盘:六神/六亲/纳甲/世应动空破/旬空/月破/旺衰/六冲六合三合", {
@@ -84,13 +87,13 @@ register("almanac", "黄历:农历/干支/节气/宜忌/吉神方位/冲煞/旬�
 }, async (a) => (await almanacTools.almanac.execute(a as never, {} as never)) as string);
 
 register("dayan", "大衍筮法(蓍草四营十八变):49策分二挂一揲四归奇,三变成爻、十八变成卦,seed可复现", {
-  seed: { type: "string", optional: true }, 占事: { type: "string", optional: true },
+  seed: { type: "stringOrNumber", optional: true }, 占事: { type: "string", optional: true },
 }, async (a) => (await zhanbu.工具.dayan.execute(a as never, {} as never)) as string);
 
 register("yilin", "焦氏易林占:本卦+之卦取4096首变诗断吉凶,之卦可指定/动爻推/随机(seed复现)", {
   本卦: { type: "string" }, 之卦: { type: "string", optional: true },
   动爻: { type: "array", optional: true }, 随机: { type: "boolean", optional: true },
-  seed: { type: "string", optional: true },
+  seed: { type: "stringOrNumber", optional: true },
 }, async (a) => (await zhanbu.工具.yilin.execute(a as never, {} as never)) as string);
 
 register("jingshi", "京氏易传占:八宫/宫五行/世应/纳甲六亲/飞伏神,据占事取用神看显伏", {

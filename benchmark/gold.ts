@@ -39,7 +39,6 @@ function shortGuaName(name: string): string | null {
   // 载入六十四卦表
   const d = JSON.parse(fs.readFileSync(path.join(ROOT, "data", "liushi_si_gua.json"), "utf8"));
   const updown = new Map((d.六十四卦 as { 卦名: string; 上下卦: string }[]).map((x) => [x.上下卦, x.卦名]));
-  if (updown.has(`?上?下`)) return null;
   if (core[1] === "为") {
     const a = GUA8.has(core[0]) ? core[0] : XIANG[core[0]];
     const b = GUA8.has(core[2]) ? core[2] : XIANG[core[2]];
@@ -98,7 +97,8 @@ function main(): void {
     const { 月支, 日干, 日支 } = parseGanzhi(e.干支);
     if (!月支 && !日支) { skipped.push([e.占事, `干支不可解析:${e.干支}`]); continue; }
     gold.push({
-      id: `${e.书号}-${e.来源[0].行}`,
+      // id 需全局唯一:多条卦例可能共享同一来源行号(如书6 同一问多卦),追加序号消歧
+      id: `${e.书号}-${e.来源[0].行}-${gold.length}`,
       书号: e.书号,
       占事: e.占事,
       卦名: 卦,

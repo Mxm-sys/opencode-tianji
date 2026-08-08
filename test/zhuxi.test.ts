@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
+import { mirrorTest } from "./helpers/mirror";
 
 const BOOK8 = JSON.parse(readFileSync(path.join(import.meta.dir, "..", "books", "08_周易本义.json"), "utf8"));
 const data = BOOK8.卷注 as Record<string, unknown[]>;
@@ -38,12 +39,9 @@ describe("周易本义朱熹卦爻注(书8)", () => {
     }
   });
 
-  test("镜像(知识库)与包内一致", () => {
-    const mirror = path.join(import.meta.dir, "..", "..", "知识库", "books", "08_周易本义.json");
-    if (existsSync(mirror)) {
-      const b = JSON.parse(readFileSync(mirror, "utf8"));
-      expect(b.卷注).toEqual(data);
-    }
+  mirrorTest("镜像(知识库)与包内一致", "books/08_周易本义.json", (mirror) => {
+    const b = JSON.parse(readFileSync(mirror, "utf8"));
+    expect(b.卷注).toEqual(data);
   });
 });
 

@@ -4,16 +4,16 @@
 [![npm downloads](https://img.shields.io/npm/dm/opencode-tianji)](https://www.npmjs.com/package/opencode-tianji)
 [![license](https://img.shields.io/npm/l/opencode-tianji)](https://github.com/Mxm-sys/opencode-tianji/blob/main/LICENSE)
 
-六爻占卜 opencode 插件(天机)。提供 8 个工具:起卦、排盘、断卦、查卦、梅花体用断卦、八字四柱、小六壬、农历黄历。数据深度绑定包内 `books/`(书层)+ `data/`(统一 schema 数据),安装即用,无需额外配置。
+六爻占卜 opencode 插件(天机)。提供 13 个工具:起卦、排盘、断卦、查卦、梅花体用断卦、八字四柱、小六壬、农历黄历、大衍、易林、京氏、火珠林、查注。数据深度绑定包内 `books/`(书层)+ `data/`(统一 schema 数据),安装即用,无需额外配置。
 
 ## 独家卖点(2026-08 开源生态对比)
 
 | 卖点 | 说明 |
 | --- | --- |
 | **8 部古籍全文 + 条目级行号溯源** | 六十四卦/爻辞/彖象/易林 4096 诗/占验卦例等每条数据可溯源到原文行号。开源生态无等价物(kanripo 无 schema、HF 语料无溯源) |
-| **375 则占验卦例库** | 增删卜易(卷一二三四)+ 卜筮正宗(十八问答)全量提取,含卦象/断语/应期原理/白话/来源,六爻领域最大结构化卦例库 |
+| **381 则占验卦例库** | 增删卜易(卷一二三四)+ 卜筮正宗(十八问答)全量提取,含卦象/断语/应期原理/白话/来源,六爻领域最大结构化卦例库 |
 | **六爻规则断卦引擎** | 用神/旬空/月破/六冲六合三合/旺相休囚/飞伏神,确定性算法,非 LLM 自由发挥 |
-| **六爻解卦公开评测基准** | `benchmark/` 自带金标准(310 例)+ runner,排盘可判、断语可溯,填补生态空白(见下文) |
+| **六爻解卦公开评测基准** | `benchmark/` 自带金标准(346 例)+ runner,排盘可判、断语可溯,填补生态空白(见下文) |
 | **白话铁律** | 每个卦学术语紧跟白话翻译,结尾必有纯白话【总结】段,输出即懂 |
 
 
@@ -21,8 +21,9 @@
 
 ```
 opencode-tianji/
-├── plugins/          # 插件层:每术一模块,自声明导出
-│   ├── zhanbu.ts     #   聚合器(合并全部术别工具,无业务逻辑)
+├── plugins/          # 插件层:聚合器,合并全部术别工具,无业务逻辑
+│   └── zhanbu.ts     #   聚合器(合并 modules/ 全部工具,13 个)
+├── modules/          # 术别模块:每术一模块,自声明导出
 │   ├── liuyao.ts     #   六爻(qigua/paipan/duangua/cha)
 │   ├── meihua.ts     #   梅花易数
 │   ├── dayan.ts      #   大衍筮法(蓍草四营十八变)
@@ -33,14 +34,17 @@ opencode-tianji/
 │   ├── bazi.ts       #   八字四柱
 │   ├── liuren.ts     #   小六壬
 │   └── almanac.ts    #   黄历
-├── lib/              # hex.ts(共享计算核心)db.ts(数据加载)ganzhi.ts(干支)
+├── lib/              # hex.ts(共享计算核心)db.ts(数据加载)ganzhi.ts(干支)engine.ts(引擎入口)
 ├── books/            # 书层:8 部典籍元数据(篇章/行号/提取状态)+ index.json
 ├── data/             # 数据层:统一 schema(每条目带 来源 溯源)
 │   └── schema/       #   JSON Schema 定义(书/数据文件/条目溯源)
-└── templates/        # 技能与命令模板
+├── templates/        # 技能与命令模板
+├── mcp/              # stdio MCP 服务器(复用全部 13 工具)
+├── benchmark/        # 六爻解卦评测基准(金标准 + runner)
+└── types/            # TypeScript 类型声明
 ```
 
-**加新占卜术 = 新建 `plugins/X.ts`(导出 `元信息`/`工具`/`数据`)+ 聚合器数组加一行**,互不影响。数据层每条记录可溯源到典籍原文行号(`来源` 字段)。八部典籍对应算法全部独立成模块,单向依赖 lib → 不跨术耦合。
+**加新占卜术 = 新建 `modules/X.ts`(导出 `元信息`/`工具`/`数据`)+ 聚合器数组加一行**,互不影响。数据层每条记录可溯源到典籍原文行号(`来源` 字段)。八部典籍对应算法全部独立成模块,单向依赖 lib → 不跨术耦合。
 
 ## 安装
 
@@ -52,7 +56,7 @@ opencode-tianji/
 }
 ```
 
-重启 opencode 即可。安装后 8 个工具自动可用:`qigua`、`paipan`、`duangua`、`cha`、`meihua`、`bazi`、`liuren`、`almanac`。
+重启 opencode 即可。安装后 13 个工具自动可用:`qigua`、`paipan`、`duangua`、`cha`、`meihua`、`bazi`、`liuren`、`almanac`、`dayan`、`yilin`、`jingshi`、`huozhulin`、`chazhu`。
 
 ## 历法精度(0.4.0 起)
 
@@ -96,10 +100,9 @@ import { buildPan, buildPanByGanzhi } from "opencode-tianji/engine";
 | --- | --- | --- |
 | `qigua` 起卦 | 梅花易数时间起卦 / 三枚铜钱六掷(seed 可复现) / 报数起卦 / 字占起卦 / 手动指定卦名,输出本卦、变卦、卦辞、世应、起卦干支 | `method`、`datetime`、`卦名`、`动爻`、`数`、`字`、`seed`、`晚子时`、`经度` |
 | `paipan` 排盘 | 六爻排盘:六神/六亲/纳甲/五行、世应动空破、卦身、旬空、月破、六冲六合三合、旺相休囚、飞伏神 | `卦名`、`动爻`、`datetime`、`占事`、`晚子时`、`经度` |
-| `duangua` 断卦 | 按占事取用神,结合旺衰动空破与世应关系给出规则性吉凶倾向 | `卦名`、`占事`、`动爻`、`datetime`、`晚子时`、`经度` |
-| `cha` 查卦 | 卦辞、爻辞(动爻高亮)、乾坤用九用六、**彖传/大象**、变卦卦辞、焦氏易林变诗、**朱熹卦爻注**、**序卦/杂卦/文言**、上下卦八卦象意 | `卦名`、`动爻` |
 | `duangua` 断卦 | 按占事取用神,结合旺衰动空破与世应关系给出规则性吉凶倾向,并附**相似卦例佐证**(381 例卦例库) | `卦名`、`占事`、`动爻`、`datetime`、`晚子时`、`经度` |
-| `meihua` 梅花断卦 | 梅花易数体用生克:分体卦用卦、求变卦互卦,按五行生克断吉凶、看体卦卦气旺衰,并按十八类占(天时/人事/家宅/婚姻/求财/疾病…)出白话断语 | `卦名`、`动爻`、`占事`、`datetime`、`晚子时`、`经度` |
+| `cha` 查卦 | 卦辞、爻辞(动爻高亮)、乾坤用九用六、**彖传/大象**、变卦卦辞、焦氏易林变诗、**朱熹卦爻注**、**序卦/杂卦/文言**、上下卦八卦象意 | `卦名`、`动爻` |
+| `meihua` 梅花断卦 | 梅花易数体用生克:分体卦用卦、求变卦互卦,按五行生克断吉凶、看体卦卦气旺衰,并按十八类占(天时/人事/家宅/婚姻/求财/疾病…)出白话断语 | `卦名`、`动爻`、`占事`、`datetime` |
 | `bazi` 八字 | 八字四柱排盘:年/月/日/时干支(精确节气),十神、地支藏干、纳音、五行统计、大运流年 | `datetime`、`性别`、`晚子时`、`经度` |
 | `liuren` 小六壬 | 小六壬占课:月/日/时起课(大安/留连/速喜/赤口/小吉/空亡),输出落宫、吉凶与断辞 | `datetime`、`month`、`day` |
 | `almanac` 黄历 | 农历/干支/节气/宜忌/吉神方位/冲煞/旬空(基于 lunar-javascript 农历历法标准) | `datetime` |
@@ -144,7 +147,7 @@ cp node_modules/opencode-tianji/templates/command/*.md .opencode/command/
 `benchmark/` 提供一个**排盘可判、断语可溯**的六爻解卦评测基准——这是开源生态当前空白(现有基准如 MingLi-Bench 只覆盖八字/紫微选择题):
 
 ```sh
-bun run benchmark/gold.ts   # 从 data/guaili.json 生成金标准(310 例)
+bun run benchmark/gold.ts   # 从 data/guaili.json 生成金标准(346 例)
 bun run benchmark/run.ts    # 引擎排盘 + 用神命中统计 → benchmark/report.md
 ```
 
@@ -194,6 +197,6 @@ bun run test:e2e:skip-llm      # 跳过真实对话,仅确定性验证(加载/�
 ## 发布
 
 ```sh
-npm run build   # 构建插件产物
-npm publish     # 发布到 npm(需 NPM_TOKEN 或 npm login)
+bun run test   # 全量测试通过后再发布
+npm publish    # 发布到 npm(需 NPM_TOKEN 或 npm login)
 ```

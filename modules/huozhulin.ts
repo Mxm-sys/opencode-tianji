@@ -51,7 +51,7 @@ async function huozhulinExecute(args: { 占事: string; 卦名?: string }): Prom
   const out: string[] = [];
   out.push("【火珠林·钱卜断占】", `占事: ${args.占事}`);
   if (args.卦名) {
-    const gua = hex.guaOf(args.卦名);
+    const gua = hex.guaOf(hex.shortGuaName(args.卦名));
     out.push(gua
       ? `参考卦: ${gua.卦名}(${gua.上下卦})${gua.卦符} (仅作上下文,火珠林为口占口诀、不强制排盘)`
       : `提示: 未找到卦「${args.卦名}」,仅按门类断辞输出。`);

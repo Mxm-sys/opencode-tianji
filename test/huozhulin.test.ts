@@ -1,11 +1,12 @@
 /**
  * huozhulin 火珠林钱卜断占测试(不 mock,直接调用 huozhulinExecute)。
- * 运行: cd /home/mxm/桌面/fun/占卜/opencode-tianji && bun test test/huozhulin.test.ts
+ * 运行: bun test test/huozhulin.test.ts
  */
 import { test, expect } from "bun:test";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { huozhulinExecute } from "../modules/huozhulin";
+import { mirrorTest } from "./helpers/mirror";
 
 const ctx = {
   sessionID: "test",
@@ -47,9 +48,9 @@ test("4. 可选卦名参数:给出卦名输出参考卦行,不影响门类命中
   expect(r).toContain("占婚姻");
 });
 
-test("5. huozhulin.json 两处 byte 一致", () => {
+mirrorTest("5. huozhulin.json 两处 byte 一致", "data/huozhulin.json", (mirror) => {
   const a = fs.readFileSync(path.resolve(import.meta.dir, "../data/huozhulin.json"));
-  const b = fs.readFileSync(path.resolve(import.meta.dir, "../../知识库/data/huozhulin.json"));
+  const b = fs.readFileSync(mirror);
   expect(a.equals(b)).toBe(true);
 });
 

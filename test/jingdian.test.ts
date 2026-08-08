@@ -1,6 +1,6 @@
 /**
  * jingdian(经传查注)插件测试。
- * 运行: cd /home/mxm/桌面/fun/占卜/opencode-tianji && bun test test/jingdian.test.ts
+ * 运行: bun test test/jingdian.test.ts
  */
 import { test, expect, beforeAll } from "bun:test";
 import jingdianPlugin from "../modules/jingdian";

@@ -100,10 +100,10 @@
     }
   ],
   "已入数据": [
-    "liushi_si_gua.json"
+    "liushi_si_gua.json",
+    "jingshi_fufu.json"
   ],
   "待提取": [
-    "64卦飞伏",
     "卦建积算",
     "五星",
     "二十八宿",

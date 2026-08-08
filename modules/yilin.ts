@@ -12,7 +12,7 @@ import type { Plugin } from "@opencode-ai/plugin";
 import * as db from "../lib/db";
 import * as hex from "../lib/hex";
 
-const { guaOf, shortGuaName, bianGuaName, normDongs, 口径披露 } = hex;
+const { guaOf, shortGuaName, bianGuaName, normDongs, simpGuaName, 口径披露 } = hex;
 
 /** mulberry32 种子 PRNG(同 liuyao,支持 seed 复现) */
 function mulberry32(a: number) {
@@ -37,21 +37,12 @@ function guaCi(name: string): string {
   return y?.卦辞 ?? guaOf(name)?.卦辞 ?? "—";
 }
 
-/** 繁体卦名 → 简体(易林数据部分本卦用繁体,如 訟/師/謙/隨 等) */
-const SIMP: Record<string, string> = {
-  訟: "讼", 師: "师", 謙: "谦", 隨: "随", 蠱: "蛊", 臨: "临", 觀: "观", 賁: "贲", 剝: "剥",
-  復: "复", 頤: "颐", 大過: "大过", 離: "离", 恆: "恒", 遯: "遁", 大壯: "大壮", 晉: "晋",
-  損: "损", 漸: "渐", 歸妹: "归妹", 豐: "丰", 兌: "兑", 渙: "涣", 節: "节", 小過: "小过",
-  既濟: "既济", 未濟: "未济",
-};
-const simpOf = (n: string): string => SIMP[n] ?? n;
-
 /** 易林索引:简体键「本卦之之卦」→ 条目(yilin.json 本卦部分为繁体,统一转简体后索引) */
 let yilinIdx: Map<string, db.YilinItem> | null = null;
 function yilinIndex(): Map<string, db.YilinItem> {
   if (!yilinIdx) {
     const idx = new Map<string, db.YilinItem>();
-    for (const e of db.loadYilin()) idx.set(`${simpOf(e.本卦)}之${simpOf(e.之卦)}`, e);
+    for (const e of db.loadYilin()) idx.set(`${simpGuaName(e.本卦)}之${simpGuaName(e.之卦)}`, e);
     yilinIdx = idx;
   }
   return yilinIdx;
@@ -83,10 +74,10 @@ async function yilinExecute(args: {
     zhi = z.卦名;
     how = "占者指定之卦";
   } else if (args.随机) {
-    const pool = entries.filter((e) => simpOf(e.本卦) === gua.卦名);
+    const pool = entries.filter((e) => simpGuaName(e.本卦) === gua.卦名);
     const seedNum = args.seed === undefined ? (Date.now() >>> 0) || 1 : toSeed(args.seed);
     const pick = pool[Math.floor(mulberry32(seedNum)() * pool.length)];
-    zhi = simpOf(pick.之卦);
+    zhi = simpGuaName(pick.之卦);
     how = `随机所之(seed=0x${seedNum.toString(16)})`;
   } else {
     const dongs = normDongs(args.动爻);
@@ -99,7 +90,7 @@ async function yilinExecute(args: {
     }
   }
 
-  const entry = yilinIndex().get(`${gua.卦名}之${simpOf(zhi)}`);
+  const entry = yilinIndex().get(`${gua.卦名}之${simpGuaName(zhi)}`);
   if (!entry) throw new Error(`易林中无「${gua.卦名}之${zhi}」条目`);
   const src = entry.来源?.[0];
   const zhiGua = guaOf(zhi);

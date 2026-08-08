@@ -1,6 +1,6 @@
 /**
  * liuyao 增强测试:cha 的【朱熹注】/【序卦·杂卦】段 + duangua 的【相似卦例】段。
- * 运行: cd /home/mxm/桌面/fun/占卜/opencode-tianji && bun test test/liuyao_enhance.test.ts
+ * 运行: bun test test/liuyao_enhance.test.ts
  */
 import { test, expect, describe, beforeAll } from "bun:test";
 import liuyaoPlugin from "../modules/liuyao";

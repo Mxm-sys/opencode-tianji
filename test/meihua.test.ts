@@ -1,11 +1,12 @@
 /**
  * meihua 梅花易数体用断卦测试(不 mock,直接调用 meihuaExecute)。
- * 运行: cd /home/mxm/桌面/fun/占卜/opencode-tianji && bun test test/meihua.test.ts
+ * 运行: bun test test/meihua.test.ts
  */
 import { test, expect } from "bun:test";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { meihuaExecute } from "../modules/meihua";
+import { mirrorTest } from "./helpers/mirror";
 
 const ctx = {
   sessionID: "test",
@@ -64,9 +65,9 @@ test("6. 十八类断辞:占事=婚姻 → 输出婚姻断辞原文/白话", asy
   expect(r).toContain("[白话]:");
 });
 
-test("7. meihua.json 两处 byte 一致", () => {
+mirrorTest("7. meihua.json 两处 byte 一致", "data/meihua.json", (mirror) => {
   const a = fs.readFileSync(path.resolve(import.meta.dir, "../data/meihua.json"));
-  const b = fs.readFileSync(path.resolve(import.meta.dir, "../../知识库/data/meihua.json"));
+  const b = fs.readFileSync(mirror);
   expect(a.equals(b)).toBe(true);
 });
 

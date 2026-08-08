@@ -29,5 +29,5 @@ description: 梅花易数体用断卦工作流。当用户请求梅花易数断�
 
 ## 参考资料
 
-- 体用断卦工具:`.opencode/plugins/meihua.ts`(十八类占断辞据 data/meihua.json)
-- 起卦工具:`.opencode/plugins/zhanbu.ts`(qigua method=time)
+- 体用断卦工具:opencode-tianji 插件提供 meihua 工具(十八类占断辞据包内 data/meihua.json)
+- 起卦工具:qigua(method=time 时间起卦 / coins 铜钱 / manual 指定)

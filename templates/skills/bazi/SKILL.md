@@ -28,5 +28,5 @@ description: 八字四柱排盘工作流。当用户请求八字命理(触发词
 
 ## 参考资料
 
-- 排盘工具:`.opencode/plugins/bazi.ts`(十神/藏干/纳音/大运据 data/bazi.json、data/ganzhi.json)
-- 干支算法:lib/ganzhi.ts(真太阳时/干支推算)
+- 排盘工具:opencode-tianji 插件提供 bazi 工具(十神/藏干/纳音/大运据包内 data/bazi.json、data/ganzhi.json)
+- 干支算法:包内 lib/ganzhi.ts(真太阳时/干支推算)

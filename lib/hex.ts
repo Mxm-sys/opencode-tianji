@@ -111,8 +111,23 @@ export const guaOfTrigrams = (up: string, down: string): Gua | undefined =>
 /** "乾上乾下" → ["乾","乾"]。八卦名皆为单字,固定第0、第2位 */
 export const splitUpDown = (s: string): [string, string] => [s[0], s[2]];
 
+/**
+ * 古籍繁体卦名 → 简体(朱熹注/焦氏易林等古籍数据用繁体,64 卦表用简体)。
+ * 整词优先(如 大過→大过、既濟→既济),逐字兜底(如 訟→讼)。统一三处实现于此。
+ */
+export const GUA_FAN2JIAN: Record<string, string> = {
+  訟: "讼", 師: "师", 謙: "谦", 隨: "随", 蠱: "蛊", 臨: "临", 觀: "观", 賁: "贲", 剝: "剥",
+  復: "复", 頤: "颐", 恆: "恒", 離: "离", 遯: "遁", 晉: "晋", 損: "损", 漸: "渐",
+  豐: "丰", 兌: "兑", 渙: "涣", 節: "节", 過: "过", 壯: "壮", 歸: "归", 濟: "济",
+  大過: "大过", 大壯: "大壮", 歸妹: "归妹", 小過: "小过", 既濟: "既济", 未濟: "未济",
+};
+export function simpGuaName(s: string): string {
+  return GUA_FAN2JIAN[s] ?? [...s].map((c) => GUA_FAN2JIAN[c] ?? c).join("");
+}
+
 /** 由本卦+动爻求变卦卦名(动爻阳变阴、阴变阳后重组上下卦查表) */
-export function bianGuaName(gua: Gua, dongs: number[]): string {
+export function bianGuaName(gua: Gua, dongsArg: number[]): string {
+  const dongs = normDongs(dongsArg);
   if (dongs.length === 0) return gua.卦名;
   const [up, down] = splitUpDown(gua.上下卦);
   const u = [...TRIGRAM_LINES[up]], d = [...TRIGRAM_LINES[down]];
@@ -132,7 +147,13 @@ export function parseDT(s?: string): { y: number; m: number; d: number; h: numbe
     return { y: n.getFullYear(), m: n.getMonth() + 1, d: n.getDate(), h: n.getHours() };
   }
   const m = /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[T\s](\d{1,2}))?/.exec(s.trim());
-  if (m) return { y: +m[1], m: +m[2], d: +m[3], h: m[4] ? +m[4] : 12 };
+  if (m) {
+    const y = +m[1], mo = +m[2], d = +m[3], h = m[4] ? +m[4] : 12;
+    if (mo < 1 || mo > 12 || d < 1 || h < 0 || h > 23 || new Date(Date.UTC(y, mo - 1, d)).getUTCDate() !== d) {
+      throw new Error(`无法解析时间: ${s}(月份须 1-12、日期须为该月真实日期、小时须 0-23)`);
+    }
+    return { y, m: mo, d, h };
+  }
   const n = new Date(s);
   if (!Number.isNaN(n.getTime())) return { y: n.getFullYear(), m: n.getMonth() + 1, d: n.getDate(), h: n.getHours() };
   throw new Error(`无法解析时间: ${s}`);
@@ -160,6 +181,7 @@ export function normDongs(dongs?: number[]): number[] {
 export function xunKong(dgz: { gan: string; zhi: string }): { xun: string; kong: string[] } {
   const g = TG.indexOf(dgz.gan);
   const z = DI.indexOf(dgz.zhi);
+  if (g < 0 || z < 0) throw new Error(`日干支非法: ${dgz.gan}${dgz.zhi}(须为天干+地支)`);
   let seq = z;
   for (let k = 0; k < 10; k++) {
     if ((z + 12 * k) % 10 === g) { seq = z + 12 * k; break; }
@@ -243,9 +265,9 @@ export interface Pan {
   yongQin?: string[]; fushen: Record<string, { gzName: string; wx: string; fei: LineInfo; shengKe: string }>;
 }
 
-/** 排盘核心:由卦名+动爻+时间构建完整六爻盘(六神/六亲/纳甲/世应动空破/旬空/月破/六冲六合三合/旺相休囚/卦身) */
+/** 排盘核心:由卦名(全称/象名/单字均可)+动爻+时间构建完整六爻盘(六神/六亲/纳甲/世应动空破/旬空/月破/六冲六合三合/旺相休囚/卦身) */
 export function buildPan(name: string, dongsArg: number[], dt?: string, opts?: GzOpts): Pan {
-  const gua = guaOf(name);
+  const gua = guaOf(shortGuaName(name));
   if (!gua) throw new Error(`未找到卦:「${name}」(可查知识库/data/liushi_si_gua.json 六十四卦卦名)`);
   const dongs = normDongs(dongsArg);
   const t = parseDT(dt);

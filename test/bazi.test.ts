@@ -1,10 +1,11 @@
 /**
  * bazi 插件测试(直接调用 baziExecute / shiShen)。
- * 运行: cd /home/mxm/桌面/fun/占卜/opencode-tianji && bun test test/bazi.test.ts
+ * 运行: bun test test/bazi.test.ts
  */
 import { test, expect } from "bun:test";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { mirrorTest } from "./helpers/mirror";
 import { baziExecute, shiShen } from "../modules/bazi";
 import { getYearGanZhi, getMonthGanZhi, getDayGanZhi, getHourGanZhi } from "../lib/ganzhi";
 
@@ -79,9 +80,9 @@ test("6. 性别影响:同一天datetime,男/女大运首步不同", async () => 
   expect(first(male)).not.toBe(first(female));
 });
 
-test("7. bazi.json 两处 byte 级一致", () => {
+mirrorTest("7. bazi.json 两处 byte 级一致", "data/bazi.json", (mirror) => {
   const a = fs.readFileSync(path.join(import.meta.dir, "..", "data", "bazi.json"), "utf8");
-  const b = fs.readFileSync("/home/mxm/桌面/fun/占卜/知识库/data/bazi.json", "utf8");
+  const b = fs.readFileSync(mirror, "utf8");
   expect(a).toBe(b);
 });
 

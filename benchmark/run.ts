@@ -16,10 +16,10 @@ type Gold = { id: string; 书号: number; 占事: string; 卦名: string; 变卦
 type PanLike = { xk: { xun: string; kong: string[] }; poZhi: string; lines: { wei: string; qin: string; gzName: string; wx: string; isKong: boolean; isPo: boolean; state: string }[]; fushen: Record<string, unknown>; gua: { 八宫: string } };
 
 /** 用卦例条目的 月支/日干支 调引擎排盘;缺月或缺日则跳过该项检查 */
-function buildPanSafe(g: Gold): Pan | null {
-  if (!g.月支 || !g.日支) return null;
+function buildPanSafe(g: Gold): Pan | "missing" | "error" {
+  if (!g.月支 || !g.日支) return "missing";
   const day = g.日干 ? `${g.日干}${g.日支}` : `甲${g.日支}`;
-  try { return buildPanByGanzhi(g.卦名, [], g.月支, day); } catch { return null; }
+  try { return buildPanByGanzhi(g.卦名, [], g.月支, day); } catch { return "error"; }
 }
 
 function main(): void {
@@ -44,7 +44,8 @@ function main(): void {
     const s = stat.get(cat) ?? { ok: 0, total: 0 };
     s.total++; stat.set(cat, s);
     const pan = buildPanSafe(g);
-    if (!pan) { noPan++; continue; }
+    if (pan === "missing") { noPan++; continue; }
+    if (pan === "error") { panErr++; continue; }
     panOk++;
     // 用神六亲是否存在(现卦或伏神)
     const qins = pan.lines.map((l) => l.qin);
@@ -73,8 +74,9 @@ function main(): void {
 }
 
 function catOf(s: string): string {
-  if (/财|货|钱|会|买卖|借贷|店|生意|债|会|摇/.test(s)) return "求财";
+  // 功名含「会试」等具体词,须先于求财(求财正则的"会"指摇会),否则会试被误分求财
   if (/官|功名|缺|选|差|升|会试|乡试|科举|考|仕/.test(s)) return "功名";
+  if (/财|货|钱|会|买卖|借贷|店|生意|债|摇/.test(s)) return "求财";
   if (/婚|嫁|娶|妻/.test(s)) return "婚姻";
   if (/病|药|医|疾|产|痘/.test(s)) return "疾病医药";
   if (/父|母|叔|伯|祖|姑/.test(s)) return "六亲";

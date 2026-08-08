@@ -1,6 +1,6 @@
 /**
  * zhanbu 插件测试(不 mock,直接调用各工具 execute)。
- * 运行: cd /home/mxm/桌面/fun/占卜 && bun test test/zhanbu.test.ts
+ * 运行: bun test test/zhanbu.test.ts
  */
 import { test, expect, beforeAll } from "bun:test";
 import zhanbuPlugin from "../plugins/zhanbu";
@@ -192,7 +192,8 @@ test("21. paipan format=json → 爻结构化含 六亲/旺衰/旬空/月破", a
   expect(j.月破).toBe("申"); // 2024-02-10 丙寅月,寅月冲申
   expect(j.爻).toHaveLength(6);
   expect(j.爻[0].六亲).toBe("子孙");
-  expect(j.爻[0].纳甲).toBeDefined ?? true;
+  expect(j.爻[0].干支).toBeDefined();
+  expect(j.爻[0].五行).toBeDefined();
   expect(j.口径).toContain("astronomy-engine");
 });
 
